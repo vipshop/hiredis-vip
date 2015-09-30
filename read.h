@@ -46,6 +46,9 @@
 #define REDIS_ERR_PROTOCOL 4 /* Protocol error */
 #define REDIS_ERR_OOM 5 /* Out of memory */
 #define REDIS_ERR_OTHER 2 /* Everything else... */
+#if 1 //shenzheng 2015-8-10 redis cluster
+#define REDIS_ERR_CLUSTER_TOO_MANY_REDIRECT 6
+#endif //shenzheng 2015-8-10 redis cluster
 
 #define REDIS_REPLY_STRING 1
 #define REDIS_REPLY_ARRAY 2
@@ -55,6 +58,13 @@
 #define REDIS_REPLY_ERROR 6
 
 #define REDIS_READER_MAX_BUF (1024*16)  /* Default max unused reader buffer. */
+
+#if 1 //shenzheng 2015-8-22 redis cluster
+#define REDIS_ERROR_MOVED "MOVED"
+#define REDIS_ERROR_ASK "ASK"
+
+#define REDIS_STATUS_OK "OK"
+#endif //shenzheng 2015-9-24 redis cluster
 
 #ifdef __cplusplus
 extern "C" {

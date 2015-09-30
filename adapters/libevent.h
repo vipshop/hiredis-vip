@@ -34,6 +34,10 @@
 #include "../hiredis.h"
 #include "../async.h"
 
+#if 1 //shenzheng 2015-9-21 redis cluster
+#include "../hircluster.h"
+#endif //shenzheng 2015-9-21 redis cluster
+
 typedef struct redisLibeventEvents {
     redisAsyncContext *context;
     struct event rev, wev;
@@ -105,4 +109,27 @@ static int redisLibeventAttach(redisAsyncContext *ac, struct event_base *base) {
     event_base_set(base,&e->wev);
     return REDIS_OK;
 }
+
+#if 1 //shenzheng 2015-9-21 redis cluster
+
+static int redisLibeventAttach_link(redisAsyncContext *ac, void *base)
+{
+	redisLibeventAttach(ac, (struct event_base *)base);
+}
+
+static int redisClusterLibeventAttach(redisClusterAsyncContext *acc, struct event_base *base) {
+
+	if(acc == NULL || base == NULL)
+	{
+		return REDIS_ERR;
+	}
+
+	acc->adapter = base;
+	acc->attach_fn = redisLibeventAttach_link;
+	
+    return REDIS_OK;
+}
+
+#endif //shenzheng 2015-9-21 redis cluster
+
 #endif

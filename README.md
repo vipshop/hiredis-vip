@@ -20,6 +20,45 @@ Redis version >= 1.2.0.
 The library comes with multiple APIs. There is the
 *synchronous API*, the *asynchronous API* and the *reply parsing API*.
 
+## CLUSTER SUPPORT
+
+### FEATURES:
+
+* **`SUPPORT REDIS CLUSTER`**:
+    * Connect to redis cluster and run commands.
+
+* **`SUPPORT MULTI-KEY COMMAND`**:
+    * Support `MSET`, `MGET` and `DEL`.
+	
+* **`SUPPORT PIPELING`**:
+    * Support redis pipeline and can contain multi-key command like above.
+	
+* **`SUPPORT Asynchronous API`**:
+    * User can run commands with asynchronous mode.
+
+### CLUSTER API:
+
+```c
+redisClusterContext *redisClusterConnect(const char *addrs);
+redisClusterContext *redisClusterConnectWithTimeout(const char *addrs, const struct timeval tv);
+redisClusterContext *redisClusterConnectNonBlock(const char *addrs);
+void redisClusterFree(redisClusterContext *cc);
+void redisClusterSetMaxRedirect(redisClusterContext *cc, int max_redirect_count);
+void *redisClusterCommand(redisClusterContext *cc, const char *format, ...);
+redisContext *ctx_get_by_node(struct cluster_node *node, const struct timeval *timeout, int flags);
+int redisClusterAppendCommand(redisClusterContext *cc, const char *format, ...);
+int redisClusterAppendCommandArgv(redisClusterContext *cc, int argc, const char **argv);
+int redisClusterGetReply(redisClusterContext *cc, void **reply);
+void redisCLusterReset(redisClusterContext *cc);
+
+redisClusterAsyncContext *redisClusterAsyncConnect(const char *addrs);
+int redisClusterAsyncSetConnectCallback(redisClusterAsyncContext *acc, redisConnectCallback *fn);
+int redisClusterAsyncSetDisconnectCallback(redisClusterAsyncContext *acc, redisDisconnectCallback *fn);
+int redisClusterAsyncCommand(redisClusterAsyncContext *acc, redisCallbackFn *fn, void *privdata, const char *format, ...);
+void redisClusterAsyncDisconnect(redisClusterAsyncContext *acc);
+void redisClusterAsyncFree(redisClusterAsyncContext *acc);
+```
+	
 ## UPGRADING
 
 Version 0.9.0 is a major overhaul of hiredis in every aspect. However, upgrading existing

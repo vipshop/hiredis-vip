@@ -2,7 +2,9 @@
 #define __HIREDIS_FMACRO_H
 
 #if defined(__linux__)
+#ifndef _BSD_SOURCE
 #define _BSD_SOURCE
+#endif
 #define _DEFAULT_SOURCE
 #endif
 
