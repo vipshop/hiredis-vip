@@ -2,10 +2,10 @@
 
 #include "hiarray.h"
 
-struct array *
-array_create(uint32_t n, size_t size)
+struct hiarray *
+hiarray_create(uint32_t n, size_t size)
 {
-    struct array *a;
+    struct hiarray *a;
 
     ASSERT(n != 0 && size != 0);
 
@@ -28,14 +28,14 @@ array_create(uint32_t n, size_t size)
 }
 
 void
-array_destroy(struct array *a)
+hiarray_destroy(struct hiarray *a)
 {
-    array_deinit(a);
+    hiarray_deinit(a);
     hi_free(a);
 }
 
 rstatus_t
-array_init(struct array *a, uint32_t n, size_t size)
+hiarray_init(struct hiarray *a, uint32_t n, size_t size)
 {
     ASSERT(n != 0 && size != 0);
 
@@ -52,7 +52,7 @@ array_init(struct array *a, uint32_t n, size_t size)
 }
 
 void
-array_deinit(struct array *a)
+hiarray_deinit(struct hiarray *a)
 {
     ASSERT(a->nelem == 0);
 
@@ -62,7 +62,7 @@ array_deinit(struct array *a)
 }
 
 uint32_t
-array_idx(struct array *a, void *elem)
+hiarray_idx(struct hiarray *a, void *elem)
 {
     uint8_t *p, *q;
     uint32_t off, idx;
@@ -81,7 +81,7 @@ array_idx(struct array *a, void *elem)
 }
 
 void *
-array_push(struct array *a)
+hiarray_push(struct hiarray *a)
 {
     void *elem, *new;
     size_t size;
@@ -106,7 +106,7 @@ array_push(struct array *a)
 }
 
 void *
-array_pop(struct array *a)
+hiarray_pop(struct hiarray *a)
 {
     void *elem;
 
@@ -119,7 +119,7 @@ array_pop(struct array *a)
 }
 
 void *
-array_get(struct array *a, uint32_t idx)
+hiarray_get(struct hiarray *a, uint32_t idx)
 {
     void *elem;
 
@@ -132,17 +132,17 @@ array_get(struct array *a, uint32_t idx)
 }
 
 void *
-array_top(struct array *a)
+hiarray_top(struct hiarray *a)
 {
     ASSERT(a->nelem != 0);
 
-    return array_get(a, a->nelem - 1);
+    return hiarray_get(a, a->nelem - 1);
 }
 
 void
-array_swap(struct array *a, struct array *b)
+hiarray_swap(struct hiarray *a, struct hiarray *b)
 {
-    struct array tmp;
+    struct hiarray tmp;
 
     tmp = *a;
     *a = *b;
@@ -154,7 +154,7 @@ array_swap(struct array *a, struct array *b)
  * compare comparator.
  */
 void
-array_sort(struct array *a, array_compare_t compare)
+hiarray_sort(struct hiarray *a, hiarray_compare_t compare)
 {
     ASSERT(a->nelem != 0);
 
@@ -166,15 +166,15 @@ array_sort(struct array *a, array_compare_t compare)
  * success. On failure short-circuits and returns the error status.
  */
 rstatus_t
-array_each(struct array *a, array_each_t func, void *data)
+hiarray_each(struct hiarray *a, hiarray_each_t func, void *data)
 {
     uint32_t i, nelem;
 
     ASSERT(array_n(a) != 0);
     ASSERT(func != NULL);
 
-    for (i = 0, nelem = array_n(a); i < nelem; i++) {
-        void *elem = array_get(a, i);
+    for (i = 0, nelem = hiarray_n(a); i < nelem; i++) {
+        void *elem = hiarray_get(a, i);
         rstatus_t status;
 
         status = func(elem, data);

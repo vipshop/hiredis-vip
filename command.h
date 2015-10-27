@@ -151,7 +151,7 @@ struct cmd {
 	char 				 *cmd;
 	uint32_t             clen;            /* command length */
 	
-    struct array         *keys;           /* array of keypos, for req */
+    struct hiarray         *keys;           /* array of keypos, for req */
 
     char              	 *narg_start;     /* narg start (redis) */
     char              	 *narg_end;       /* narg end (redis) */
@@ -170,7 +170,7 @@ struct cmd {
 
 };
 
-void redis_parse_req(struct cmd *r);
+void redis_parse_cmd(struct cmd *r);
 
 struct cmd *command_get(void);
 void command_destroy(struct cmd *command);

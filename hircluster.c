@@ -270,7 +270,7 @@ cluster_update_route_with_slots(redisClusterContext *cc,
 	redisReply *elem_slots_begin, *elem_slots_end;
 	redisReply *elem_node_master;
 	redisReply *elem_ip, *elem_port;
-	struct array *slots = NULL;
+	struct hiarray *slots = NULL;
 	cluster_slot *slot;
 	cluster_node *node;
 	const char *errstr = NULL;
@@ -328,7 +328,7 @@ cluster_update_route_with_slots(redisClusterContext *cc,
 		goto error;
 	}
 	
-	slots = array_create(reply->elements, sizeof(cluster_slot));
+	slots = hiarray_create(reply->elements, sizeof(cluster_slot));
 	if(slots == NULL)
 	{
 		err = REDIS_ERR_OTHER;
@@ -347,7 +347,7 @@ cluster_update_route_with_slots(redisClusterContext *cc,
 			goto error;
 		}
 
-		slot = array_push(slots);
+		slot = hiarray_push(slots);
 		if(slot == NULL)
 		{
 			err = REDIS_ERR_OTHER;
@@ -449,7 +449,7 @@ cluster_update_route_with_slots(redisClusterContext *cc,
 	
 	cc->slots = slots;
 
-	array_sort(cc->slots, cluster_slot_start_cmp);
+	hiarray_sort(cc->slots, cluster_slot_start_cmp);
 
 	freeReplyObject(reply);
 
@@ -467,13 +467,13 @@ error:
 
 	if(slots != NULL)
 	{		
-		while(array_n(slots))
+		while(hiarray_n(slots))
 		{
-			slot = array_pop(slots);
+			slot = hiarray_pop(slots);
 			cluster_slot_deinit(slot);
 		}
 		
-		array_destroy(slots);
+		hiarray_destroy(slots);
 	}
 
 	if(reply != NULL)
@@ -495,7 +495,7 @@ cluster_update_route_with_nodes(redisClusterContext *cc,
 {
 	redisContext *c = NULL;
 	redisReply *reply = NULL;
-	struct array *slots = NULL;
+	struct hiarray *slots = NULL;
 	dict *nodes = NULL;
 	cluster_node *node;
 	cluster_slot **slot;
@@ -571,7 +571,7 @@ cluster_update_route_with_nodes(redisClusterContext *cc,
 
 	nodes = dictCreate(&clusterNodesDictType, NULL);
 	
-	slots = array_create(10, sizeof(cluster_slot*));
+	slots = hiarray_create(10, sizeof(cluster_slot*));
 	if(slots == NULL)
 	{
 		err = REDIS_ERR_OTHER;
@@ -717,7 +717,7 @@ cluster_update_route_with_nodes(redisClusterContext *cc,
 						table[j] = node;
 					}
 					
-					slot = array_push(slots);
+					slot = hiarray_push(slots);
 					if(slot == NULL)
 					{
 						err = REDIS_ERR_OTHER;
@@ -768,13 +768,13 @@ cluster_update_route_with_nodes(redisClusterContext *cc,
 
 	if(cc->slots != NULL)
 	{
-		while(array_n(cc->slots))
+		while(hiarray_n(cc->slots))
 		{
-			slot = array_pop(cc->slots);
+			slot = hiarray_pop(cc->slots);
 			cluster_slot_deinit(*slot);
 		}
 		
-		array_destroy(cc->slots);
+		hiarray_destroy(cc->slots);
 		cc->slots = NULL;
 	}
 	cc->slots = slots;
@@ -785,7 +785,7 @@ cluster_update_route_with_nodes(redisClusterContext *cc,
 	}
 	cc->nodes = nodes;
 
-	array_sort(cc->slots, cluster_slot_start_cmp);
+	hiarray_sort(cc->slots, cluster_slot_start_cmp);
 
 	memcpy(cc->table, table, REDIS_CLUSTER_SLOTS*sizeof(cluster_node *));
 	
@@ -830,13 +830,13 @@ error:
 			cc->slots = NULL;
 		}
 		
-		while(array_n(slots))
+		while(hiarray_n(slots))
 		{
-			slot = array_pop(slots);
+			slot = hiarray_pop(slots);
 			cluster_slot_deinit(*slot);
 		}
 		
-		array_destroy(slots);
+		hiarray_destroy(slots);
 	}
 
 	if(nodes != NULL)
@@ -951,6 +951,7 @@ static redisClusterContext *redisClusterContextInit(void) {
 	cc->max_redirect_count = CLUSTER_DEFAULT_MAX_REDIRECT_COUNT;
 	cc->retry_count = 0;
 	cc->requests = NULL;
+	cc->need_update_route = 0;
 
 	cc->nodes = NULL;
 	for(i = 0; i < REDIS_CLUSTER_SLOTS; i ++)
@@ -987,13 +988,13 @@ void redisClusterFree(redisClusterContext *cc) {
 
 	if(cc->slots != NULL)
 	{
-		while(array_n(cc->slots))
+		while(hiarray_n(cc->slots))
 		{
-			slot = array_pop(cc->slots);
+			slot = hiarray_pop(cc->slots);
 			cluster_slot_deinit(*slot);
 		}
 		
-		array_destroy(cc->slots);
+		hiarray_destroy(cc->slots);
 		cc->slots = NULL;
 	}
 
@@ -1237,7 +1238,7 @@ redisContext *ctx_get_by_node(cluster_node *node,
 
 static cluster_node *node_get_by_slot(redisClusterContext *cc, uint32_t slot_num)
 {
-	struct array *slots;
+	struct hiarray *slots;
 	uint32_t slot_count;
 	cluster_slot **slot;
 	uint32_t middle, start, end;
@@ -1258,7 +1259,7 @@ static cluster_node *node_get_by_slot(redisClusterContext *cc, uint32_t slot_num
 	{
 		return NULL;
 	}
-	slot_count = array_n(slots);
+	slot_count = hiarray_n(slots);
 
 	start = 0;
 	end = slot_count - 1;
@@ -1277,7 +1278,7 @@ static cluster_node *node_get_by_slot(redisClusterContext *cc, uint32_t slot_num
 
 		ASSERT(middle >= 0 && middle < slot_count);
 
-		slot = array_get(slots, middle);
+		slot = hiarray_get(slots, middle);
 		if((*slot)->start > slot_num)
 		{
 			end = middle - 1;
@@ -1396,14 +1397,14 @@ static int slot_get_by_command(redisClusterContext *cc, char *cmd, int len)
 	
 	command->cmd = cmd;
 	command->clen = len;
-	redis_parse_req(command);
+	redis_parse_cmd(command);
 	if(command->result != CMD_PARSE_OK)
 	{
 		__redisClusterSetError(cc, REDIS_ERR_PROTOCOL, "parse command error");
 		goto done;
 	}
 
-	key_count = array_n(command->keys);
+	key_count = hiarray_n(command->keys);
 
 	if(key_count <= 0)
 	{
@@ -1412,15 +1413,15 @@ static int slot_get_by_command(redisClusterContext *cc, char *cmd, int len)
 	}
 	else if(key_count == 1)
 	{
-		kp = array_get(command->keys, 0);
+		kp = hiarray_get(command->keys, 0);
 		slot_num = keyHashSlot(kp->start, kp->end - kp->start);
 
 		goto done;
 	}
 	
-	for(i = 0; i < array_n(command->keys); i ++)
+	for(i = 0; i < hiarray_n(command->keys); i ++)
 	{
-		kp = array_get(command->keys, i);
+		kp = hiarray_get(command->keys, i);
 
 		slot_num = keyHashSlot(kp->start, kp->end - kp->start);
 	}
@@ -1472,7 +1473,7 @@ static int __redisClusterAppendCommand(redisClusterContext *cc,
 		return REDIS_ERR;
 	}
 
-	if (__redisAppendCommand(c,command->cmd, command->clen) != REDIS_OK) 
+	if (__redisAppendCommand(c, command->cmd, command->clen) != REDIS_OK) 
 	{
 		__redisClusterSetError(cc, c->err, c->errstr);
 		return REDIS_ERR;
@@ -1483,13 +1484,13 @@ static int __redisClusterAppendCommand(redisClusterContext *cc,
 
 /* Helper function for the redisClusterGetReply* family of functions.
  */
-
 int __redisClusterGetReply(redisClusterContext *cc, int slot_num, void **reply)
 {
 	cluster_node *node;
 	redisContext *c;
+	redisReply *r;
 	
-	if(cc == NULL || slot_num < 0)
+	if(cc == NULL || slot_num < 0 || reply == NULL)
 	{
 		return REDIS_ERR;
 	}
@@ -1509,6 +1510,15 @@ int __redisClusterGetReply(redisClusterContext *cc, int slot_num, void **reply)
 	}
 	else if(c->err)
 	{
+		if(cc->need_update_route == 0)
+		{
+			cc->retry_count ++;
+			if(cc->retry_count > cc->max_redirect_count)
+			{
+				cc->need_update_route = 1;
+				cc->retry_count = 0;
+			}
+		}
 		__redisClusterSetError(cc, c->err, c->errstr);
 		return REDIS_ERR;
 	}
@@ -1517,6 +1527,14 @@ int __redisClusterGetReply(redisClusterContext *cc, int slot_num, void **reply)
 	{
 		__redisClusterSetError(cc, c->err, c->errstr);
 		return REDIS_ERR;
+	}
+
+	r = *reply;
+	if(r->type == REDIS_REPLY_ERROR && 
+		(int)strlen(REDIS_ERROR_MOVED) < r->len && 
+		strncmp(r->str, REDIS_ERROR_MOVED, strlen(REDIS_ERROR_MOVED)) == 0)
+	{
+		cc->need_update_route = 1;
 	}
 
 	return REDIS_OK;
@@ -1733,7 +1751,7 @@ static int command_pre_fragment(redisClusterContext *cc,
 		goto done;
 	}
 
-	key_count = array_n(command->keys);
+	key_count = hiarray_n(command->keys);
 
 	sub_commands = hi_zalloc(REDIS_CLUSTER_SLOTS * sizeof(*sub_commands));
     if (sub_commands == NULL) 
@@ -1752,7 +1770,7 @@ static int command_pre_fragment(redisClusterContext *cc,
 	
 	for(i = 0; i < key_count; i ++)
 	{
-		kp = array_get(command->keys, i);
+		kp = hiarray_get(command->keys, i);
 
 		slot_num = keyHashSlot(kp->start, kp->end - kp->start);
 
@@ -1775,7 +1793,7 @@ static int command_pre_fragment(redisClusterContext *cc,
 
 		sub_command->narg++;
 
-		sub_kp = array_push(sub_command->keys);
+		sub_kp = hiarray_push(sub_command->keys);
         if (sub_kp == NULL) {
             __redisClusterSetError(cc,REDIS_ERR_OOM,"Out of memory");
 			slot_num = -1;
@@ -1847,9 +1865,9 @@ static int command_pre_fragment(redisClusterContext *cc,
 			memcpy(sub_command->cmd + idx, "\r\n$4\r\nmget\r\n", 12);
 			idx += 12;
 			
-			for(j = 0; j < array_n(sub_command->keys); j ++)
+			for(j = 0; j < hiarray_n(sub_command->keys); j ++)
 			{
-				kp = array_get(sub_command->keys, j);
+				kp = hiarray_get(sub_command->keys, j);
 				key_len = (uint32_t)(kp->end - kp->start);
 				hi_itoa(num_str, key_len);
 				num_str_len = strlen(num_str);
@@ -1890,9 +1908,9 @@ static int command_pre_fragment(redisClusterContext *cc,
 			memcpy(sub_command->cmd + idx, "\r\n$3\r\ndel\r\n", 11);
 			idx += 11;
 
-			for(j = 0; j < array_n(sub_command->keys); j ++)
+			for(j = 0; j < hiarray_n(sub_command->keys); j ++)
 			{
-				kp = array_get(sub_command->keys, j);
+				kp = hiarray_get(sub_command->keys, j);
 				key_len = (uint32_t)(kp->end - kp->start);
 				hi_itoa(num_str, key_len);
 				num_str_len = strlen(num_str);
@@ -1935,9 +1953,9 @@ static int command_pre_fragment(redisClusterContext *cc,
 			memcpy(sub_command->cmd + idx, "\r\n$4\r\nmset\r\n", 12);
 			idx += 12;
 			
-			for(j = 0; j < array_n(sub_command->keys); j ++)
+			for(j = 0; j < hiarray_n(sub_command->keys); j ++)
 			{
-				kp = array_get(sub_command->keys, j);
+				kp = hiarray_get(sub_command->keys, j);
 				key_len = (uint32_t)(kp->end - kp->start);
 				hi_itoa(num_str, key_len);
 				num_str_len = strlen(num_str);
@@ -2051,7 +2069,7 @@ static void *command_post_fragment(redisClusterContext *cc,
 
 		reply->type = REDIS_REPLY_ARRAY;
 
-		key_count = array_n(command->keys);
+		key_count = hiarray_n(command->keys);
 
 		reply->elements = key_count;
 		reply->element = hi_calloc(key_count, sizeof(*reply));
@@ -2125,14 +2143,14 @@ static int command_format_by_slot(redisClusterContext *cc,
 	}
 
 	
-	redis_parse_req(command);
+	redis_parse_cmd(command);
 	if(command->result != CMD_PARSE_OK)
 	{
 		__redisClusterSetError(cc, REDIS_ERR_PROTOCOL, "parse command error");
 		goto done;
 	}
 
-	key_count = array_n(command->keys);
+	key_count = hiarray_n(command->keys);
 
 	if(key_count <= 0)
 	{
@@ -2141,7 +2159,7 @@ static int command_format_by_slot(redisClusterContext *cc,
 	}
 	else if(key_count == 1)
 	{
-		kp = array_get(command->keys, 0);
+		kp = hiarray_get(command->keys, 0);
 		slot_num = keyHashSlot(kp->start, kp->end - kp->start);
 		command->slot_num = slot_num;
 
@@ -2423,7 +2441,7 @@ done:
 		goto error;
 	}
 
-	if(commands != NULL && listLength(commands) > 0)
+	if(commands != NULL)
 	{
 		if(listLength(commands) > 0)
 		{
@@ -2489,6 +2507,50 @@ int redisClusterAppendCommandArgv(redisClusterContext *cc,
     return REDIS_OK;
 }
 
+static int redisCLusterSendAll(redisClusterContext *cc)
+{
+	dictIterator *di;
+	dictEntry *de;
+	struct cluster_node *node;
+	redisContext *c = NULL;
+	int wdone = 0;
+	
+	if(cc == NULL || cc->nodes == NULL)
+	{
+		return REDIS_ERR;
+	}
+
+	di = dictGetIterator(cc->nodes);
+	while((de = dictNext(di)) != NULL)
+	{
+		node = dictGetEntryVal(de);
+		if(node == NULL)
+		{
+			continue;
+		}
+		
+		c = ctx_get_by_node(node, cc->timeout, cc->flags);
+		if(c == NULL)
+		{
+			continue;
+		}		
+
+		if (c->flags & REDIS_BLOCK) {
+        	/* Write until done */
+        	do {
+            	if (redisBufferWrite(c,&wdone) == REDIS_ERR)
+            	{
+					dictReleaseIterator(di);
+					return REDIS_ERR;
+            	}
+        	} while (!wdone);
+		}
+	}
+	
+	dictReleaseIterator(di);
+
+	return REDIS_OK;
+}
 
 int redisClusterGetReply(redisClusterContext *cc, void **reply) {
 
@@ -2499,17 +2561,18 @@ int redisClusterGetReply(redisClusterContext *cc, void **reply) {
 	int slot_num;
 	void *sub_reply;
 
-	if(cc == NULL || cc->requests == NULL)
+	if(cc == NULL || cc->requests == NULL || reply == NULL)
 	{
 		return REDIS_ERR;
 	}
 
 	list_command = listFirst(cc->requests);
+
+	//no more reply
 	if(list_command == NULL)
 	{
-		__redisClusterSetError(cc,REDIS_ERR_OTHER,
-			"no more reply");
-		return REDIS_ERR;
+		*reply = NULL;
+		return REDIS_OK;
 	}
 	
 	command = list_command->value;
@@ -2583,44 +2646,48 @@ error:
 
 void redisCLusterReset(redisClusterContext *cc)
 {
-	dictIterator *di;
-	dictEntry *de;
-	struct cluster_node *node;
 	redisContext *c = NULL;
+	int status;
+	void *reply;
 	
 	if(cc == NULL || cc->nodes == NULL)
 	{
 		return;
 	}
 
-	di = dictGetIterator(cc->nodes);
-	while((de = dictNext(di)) != NULL)
-	{
-		node = dictGetEntryVal(de);
-		if(node == NULL)
+	redisCLusterSendAll(cc);
+	
+	do{
+		status = redisClusterGetReply(cc, &reply);
+		if(status == REDIS_OK)
 		{
-			continue;
+			freeReplyObject(reply);
 		}
-		
-		c = ctx_get_by_node(node, cc->timeout, cc->flags);
-		if(c == NULL)
+		else
 		{
-			continue;
+			redisReaderFree(c->reader);
+			c->reader = redisReaderCreate();
+			break;
 		}
-
-		sdsfree(c->obuf);
-    	redisReaderFree(c->reader);
-
-    	c->obuf = sdsempty();
-    	c->reader = redisReaderCreate();
 	}
-
-	dictReleaseIterator(di);
-
+	while(reply != NULL);
+	
 	if(cc->requests)
 	{
 		listRelease(cc->requests);
 		cc->requests = NULL;
+	}
+
+	if(cc->need_update_route)
+	{
+		status = cluster_update_route(cc);
+		if(status != REDIS_OK)
+		{
+			__redisClusterSetError(cc, REDIS_ERR_OTHER, 
+				"route update error, please recreate redisClusterContext!");
+			return;
+		}
+		cc->need_update_route = 0;
 	}
 }
 

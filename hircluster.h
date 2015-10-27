@@ -4,7 +4,6 @@
 
 #include "hiredis.h"
 #include "adlist.h"
-#include "hiarray.h"
 #include "async.h"
 
 #define REDIS_CLUSTER_SLOTS 16384
@@ -48,7 +47,7 @@ typedef struct redisClusterContext {
     enum redisConnectionType connection_type;
     struct timeval *timeout;
 	
-	struct array *slots;
+	struct hiarray *slots;
 
 	struct dict *nodes;
 	cluster_node *table[REDIS_CLUSTER_SLOTS];
@@ -57,6 +56,8 @@ typedef struct redisClusterContext {
 	int retry_count;
 
 	list *requests;
+
+	int need_update_route;
 } redisClusterContext;
 
 redisClusterContext *redisClusterConnect(const char *addrs);

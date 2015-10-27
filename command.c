@@ -310,10 +310,10 @@ redis_argeval(struct cmd *r)
  *     the last argument is handled in a special way in order to allow for
  *     a binary-safe last argument.
  *
- * Nutcracker only supports the Redis unified protocol for requests.
+ * only supports the Redis unified protocol for requests.
  */
 void
-redis_parse_req(struct cmd *r)
+redis_parse_cmd(struct cmd *r)
 {
     char *p, *m, *token = NULL;
 	char *cmd_end;
@@ -1110,7 +1110,7 @@ redis_parse_req(struct cmd *r)
                 m = token;
                 token = NULL;
 
-                kpos = array_push(r->keys);
+                kpos = hiarray_push(r->keys);
                 if (kpos == NULL) {
                     goto enomem;
                 }
@@ -1638,7 +1638,7 @@ struct cmd *command_get()
 	command->reply = NULL;
 	command->sub_commands = NULL;
 
-	command->keys = array_create(1, sizeof(struct keypos));
+	command->keys = hiarray_create(1, sizeof(struct keypos));
     if (command->keys == NULL) 
 	{
 		hi_free(command);
@@ -1663,7 +1663,7 @@ void command_destroy(struct cmd *command)
 	if(command->keys != NULL)
 	{
 		command->keys->nelem = 0;
-		array_destroy(command->keys);
+		hiarray_destroy(command->keys);
 	}
 
 	if(command->frag_seq != NULL)
