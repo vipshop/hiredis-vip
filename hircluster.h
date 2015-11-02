@@ -52,6 +52,8 @@ typedef struct redisClusterContext {
 	struct dict *nodes;
 	cluster_node *table[REDIS_CLUSTER_SLOTS];
 
+	uint64_t route_version;
+
 	int max_redirect_count;
 	int retry_count;
 
@@ -82,7 +84,11 @@ void redisCLusterReset(redisClusterContext *cc);
 
 /*############redis cluster async############*/
 
+struct redisClusterAsyncContext;
+
 typedef int (adapterAttachFn)(struct redisAsyncContext*, void*);
+
+typedef void (redisClusterCallbackFn)(struct redisClusterAsyncContext*, void*, void*);
 
 /* Context for an async connection to Redis */
 typedef struct redisClusterAsyncContext {
@@ -111,7 +117,7 @@ typedef struct redisClusterAsyncContext {
 redisClusterAsyncContext *redisClusterAsyncConnect(const char *addrs);
 int redisClusterAsyncSetConnectCallback(redisClusterAsyncContext *acc, redisConnectCallback *fn);
 int redisClusterAsyncSetDisconnectCallback(redisClusterAsyncContext *acc, redisDisconnectCallback *fn);
-int redisClusterAsyncCommand(redisClusterAsyncContext *acc, redisCallbackFn *fn, void *privdata, const char *format, ...);
+int redisClusterAsyncCommand(redisClusterAsyncContext *acc, redisClusterCallbackFn *fn, void *privdata, const char *format, ...);
 void redisClusterAsyncDisconnect(redisClusterAsyncContext *acc);
 void redisClusterAsyncFree(redisClusterAsyncContext *acc);
 

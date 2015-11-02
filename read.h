@@ -60,10 +60,13 @@
 #define REDIS_READER_MAX_BUF (1024*16)  /* Default max unused reader buffer. */
 
 #if 1 //shenzheng 2015-8-22 redis cluster
-#define REDIS_ERROR_MOVED "MOVED"
-#define REDIS_ERROR_ASK "ASK"
+#define REDIS_ERROR_MOVED 			"MOVED"
+#define REDIS_ERROR_ASK 			"ASK"
+#define REDIS_ERROR_TRYAGAIN 		"TRYAGAIN"
+#define REDIS_ERROR_CROSSSLOT 		"CROSSSLOT"
+#define REDIS_ERROR_CLUSTERDOWN 	"CLUSTERDOWN"
 
-#define REDIS_STATUS_OK "OK"
+#define REDIS_STATUS_OK 			"OK"
 #endif //shenzheng 2015-9-24 redis cluster
 
 #ifdef __cplusplus
