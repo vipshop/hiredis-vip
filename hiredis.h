@@ -156,7 +156,6 @@ typedef struct redisContext {
     struct {
         char *path;
     } unix_sock;
-
 } redisContext;
 
 redisContext *redisConnect(const char *ip, int port);
