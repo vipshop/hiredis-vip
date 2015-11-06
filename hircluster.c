@@ -13,6 +13,12 @@
 #include "dict.c"
 #include "async.h"
 
+/* The flag to decide whether add slave node 
+  * in redisClusterContext->nodes. This is set in the
+  * least significant bit of the flags field in redisClusterContext. */
+#define CLUSTER_NEED_ADD_SLAVE 0x10000000
+
+
 #define REDIS_COMMAND_CLUSTER_NODES "CLUSTER NODES"
 #define REDIS_COMMAND_CLUSTER_SLOTS "CLUSTER SLOTS"
 
@@ -77,6 +83,8 @@ void dictClusterNodeDestructor(void *privdata, void *val)
     DICT_NOTUSED(privdata);
 
     cluster_node_deinit(val);
+
+	hi_free(val);
 }
 
 /* Cluster nodes hash table, mapping nodes addresses 1.2.3.4:6379 to
@@ -317,6 +325,91 @@ static int cluster_slot_ref_node(cluster_slot *slot, cluster_node *node)
 	slot->node = node;
 	
 	return REDIS_OK;
+}
+
+void redisClusterSetOptionAddSlave(redisClusterContext *cc)
+{
+	if(cc == NULL)
+	{
+		return;
+	}
+
+	cc->flags |= CLUSTER_NEED_ADD_SLAVE;
+}
+
+/**
+  * Return a new node with the "cluster nodes" command reply.
+  */
+static cluster_node *node_get_with_nodes(
+	redisClusterContext *cc,
+	sds *node_infos, int info_count, int role)
+{
+	sds *ip_port = NULL;
+	int count_ip_port = 0;
+	cluster_node *node;
+
+	if(info_count < 8)
+	{
+		return NULL;
+	}
+
+	node = hi_alloc(sizeof(cluster_node));
+	if(node == NULL)
+	{
+		__redisClusterSetError(cc,
+			REDIS_ERR_OOM,"Out of memory");
+		goto error;
+	}
+	
+	cluster_node_init(node);
+
+	if(role)
+	{
+		node->slots = listCreate();
+		if(node->slots == NULL)
+		{
+			hi_free(node);
+			__redisClusterSetError(cc,REDIS_ERR_OTHER,
+				"slots for node listCreate error");
+			goto error;
+		}
+	}
+	
+	node->name = node_infos[0];	
+	node->addr = node_infos[1];
+	
+	ip_port = sdssplitlen(node_infos[1], sdslen(node_infos[1]), 
+		IP_PORT_SEPARATOR, strlen(IP_PORT_SEPARATOR), &count_ip_port);
+	if(ip_port == NULL || count_ip_port != 2)
+	{
+		__redisClusterSetError(cc,REDIS_ERR_OTHER,
+			"split ip port error");
+		goto error;
+	}
+	node->host = ip_port[0];
+	node->port = hi_atoi(ip_port[1], sdslen(ip_port[1]));
+	node->master = role;
+
+	sdsfree(ip_port[1]);
+	free(ip_port);
+
+	node_infos[0] = NULL;
+	node_infos[1] = NULL;
+	
+	return node;
+
+error:
+	if(ip_port != NULL)
+	{
+		sdsfreesplitres(ip_port, count_ip_port);
+	}
+
+	if(node != NULL)
+	{
+		hi_free(node);
+	}
+
+	return NULL;
 }
 
 static void cluster_nodes_swap_ctx(dict *nodes_f, dict *nodes_t)
@@ -603,10 +696,14 @@ error:
 	return REDIS_ERR;
 }
 
+/**
+  * Update route with the "cluster nodes" command reply.
+  */
 static int 
 cluster_update_route_with_nodes(redisClusterContext *cc, 
 	const char *ip, int port)
 {
+	int ret;
 	redisContext *c = NULL;
 	redisReply *reply = NULL;
 	struct hiarray *slots = NULL;
@@ -618,10 +715,8 @@ cluster_update_route_with_nodes(redisClusterContext *cc,
 	int role_len;
 	uint8_t myself = 0;
 	int slot_start, slot_end;
-	const char *errstr = NULL;
-	int err = 0;
-	sds *part = NULL, *ip_port = NULL, *slot_start_end = NULL;
-	int count_part = 0, count_ip_port = 0, count_slot_start_end = 0;
+	sds *part = NULL, *slot_start_end = NULL;
+	int count_part = 0, count_slot_start_end = 0;
 	int j, k;
 	int len;
 	cluster_node *table[REDIS_CLUSTER_SLOTS] = {NULL};
@@ -633,8 +728,8 @@ cluster_update_route_with_nodes(redisClusterContext *cc,
 
 	if(ip == NULL || port <= 0)
 	{
-		err = REDIS_ERR_OTHER;
-		errstr = "ip or port error!\0";
+		__redisClusterSetError(cc,
+			REDIS_ERR_OTHER,"ip or port error!");
 		goto error;
 	}
 
@@ -649,14 +744,13 @@ cluster_update_route_with_nodes(redisClusterContext *cc,
 		
 	if (c == NULL)
     {
-		err = REDIS_ERR_OTHER;
-		errstr = "init redis context error(return NULL)!\0";
+		__redisClusterSetError(cc,REDIS_ERR_OTHER,
+			"init redis context error(return NULL)");
 		goto error;
     }
 	else if(c->err)
 	{
-		err = c->err;
-		errstr = c->errstr;
+		__redisClusterSetError(cc,c->err,c->errstr);
 		goto error;
 	}
 
@@ -664,20 +758,21 @@ cluster_update_route_with_nodes(redisClusterContext *cc,
 
 	if(reply == NULL)
 	{
-		err = REDIS_ERR_OTHER;
-		errstr = "command(cluster nodes) reply error(NULL)!\0";
+		__redisClusterSetError(cc,REDIS_ERR_OTHER,
+			"command(cluster nodes) reply error(NULL)");
 		goto error;
 	}
 	else if(reply->type != REDIS_REPLY_STRING)
 	{
-		err = REDIS_ERR_OTHER;
 		if(reply->type == REDIS_REPLY_ERROR)
 		{
-			errstr = reply->str;
+			__redisClusterSetError(cc,REDIS_ERR_OTHER,
+				reply->str);
 		}
 		else
 		{
-			errstr = "command(cluster nodes) reply error(type is not string)!\0";
+			__redisClusterSetError(cc,REDIS_ERR_OTHER,
+				"command(cluster nodes) reply error(type is not string)");
 		}
 		
 		goto error;
@@ -688,8 +783,8 @@ cluster_update_route_with_nodes(redisClusterContext *cc,
 	slots = hiarray_create(10, sizeof(cluster_slot*));
 	if(slots == NULL)
 	{
-		err = REDIS_ERR_OTHER;
-		errstr = "array create error!\0";
+		__redisClusterSetError(cc,REDIS_ERR_OTHER,
+			"array create error");
 		goto error;
 	}
 
@@ -709,8 +804,8 @@ cluster_update_route_with_nodes(redisClusterContext *cc,
 
 			if(part == NULL || count_part < 8)
 			{
-				err = REDIS_ERR_OTHER;
-				errstr = "split cluster nodes error!\0";
+				__redisClusterSetError(cc,REDIS_ERR_OTHER,
+					"split cluster nodes error");
 				goto error;
 			}
 
@@ -726,62 +821,38 @@ cluster_update_route_with_nodes(redisClusterContext *cc,
 				role = part[2];
 			}
 
+			//add master node
 			if(role_len >= 6 && memcmp(role, "master", 6) == 0)
 			{
 				if(count_part < 8)
 				{
-					err = REDIS_ERR_OTHER;
-					errstr = "master node part number error!\0";
+					__redisClusterSetError(cc,REDIS_ERR_OTHER,
+						"master node part number error");
 					goto error;
 				}
-
-				node = hi_alloc(sizeof(cluster_node));
+				
+				node = node_get_with_nodes(cc, part, count_part, 1);
 				if(node == NULL)
 				{
-					err = REDIS_ERR_OTHER;
-					errstr = "alloc cluster node error!\0";
 					goto error;
 				}
 
-				cluster_node_init(node);
-				
-				node->slots = listCreate();
-				if(node->slots == NULL)
+				ret = dictAdd(nodes, 
+					sdsnewlen(node->addr, sdslen(node->addr)), node);
+				if(ret != DICT_OK)
 				{
+					__redisClusterSetError(cc,REDIS_ERR_OTHER,
+						"the address already exists in the nodes");
+					cluster_node_deinit(node);
 					hi_free(node);
-					err = REDIS_ERR_OTHER;
-					errstr = "slots for node listCreate error!\0";
 					goto error;
 				}
 				
-				node->name = part[0];
-
-				node->addr = part[1];
-
-				dictAdd(nodes, sdsnewlen(node->addr, sdslen(node->addr)), node);
-				
-				ip_port = sdssplitlen(part[1], sdslen(part[1]), 
-					IP_PORT_SEPARATOR, strlen(IP_PORT_SEPARATOR), &count_ip_port);
-				if(ip_port == NULL || count_ip_port != 2)
-				{
-					err = REDIS_ERR_OTHER;
-					errstr = "split ip port error!\0";
-					goto error;
-				}
-				node->host = ip_port[0];
-				node->port = hi_atoi(ip_port[1], sdslen(ip_port[1]));
-				node->master = 1;
 				if(myself == 1)
 				{
 					node->con = c;
 					c = NULL;
-					myself = 0;
 				}
-				
-				sdsfree(ip_port[1]);
-				free(ip_port);
-				count_ip_port = 0;
-				ip_port = NULL;
 				
 				for(k = 8; k < count_part; k ++)
 				{
@@ -790,19 +861,22 @@ cluster_update_route_with_nodes(redisClusterContext *cc,
 					
 					if(slot_start_end == NULL)
 					{
-						err = REDIS_ERR_OTHER;
-						errstr = "split slot start end error(NULL)!\0";
+						__redisClusterSetError(cc,REDIS_ERR_OTHER,
+							"split slot start end error(NULL)");
 						goto error;
 					}
 					else if(count_slot_start_end == 1)
 					{
-						slot_start = hi_atoi(slot_start_end[0], sdslen(slot_start_end[0]));
+						slot_start = 
+							hi_atoi(slot_start_end[0], sdslen(slot_start_end[0]));
 						slot_end = slot_start;
 					}
 					else if(count_slot_start_end == 2)
 					{
-						slot_start = hi_atoi(slot_start_end[0], sdslen(slot_start_end[0]));;
-						slot_end = hi_atoi(slot_start_end[1], sdslen(slot_start_end[1]));;
+						slot_start = 
+							hi_atoi(slot_start_end[0], sdslen(slot_start_end[0]));;
+						slot_end = 
+							hi_atoi(slot_start_end[1], sdslen(slot_start_end[1]));;
 					}
 					else
 					{
@@ -824,8 +898,8 @@ cluster_update_route_with_nodes(redisClusterContext *cc,
 					{
 						if(table[j] != NULL)
 						{
-							err = REDIS_ERR_OTHER;
-							errstr = "diffent node hold a same slot!\0";
+							__redisClusterSetError(cc,REDIS_ERR_OTHER,
+								"diffent node hold a same slot");
 							goto error;
 						}
 						table[j] = node;
@@ -834,16 +908,16 @@ cluster_update_route_with_nodes(redisClusterContext *cc,
 					slot = hiarray_push(slots);
 					if(slot == NULL)
 					{
-						err = REDIS_ERR_OTHER;
-						errstr = "slot push in array error!\0";
+						__redisClusterSetError(cc,REDIS_ERR_OTHER,
+							"slot push in array error");
 						goto error;
 					}
 
 					*slot = hi_alloc(sizeof(**slot));
 					if(*slot == NULL)
 					{
-						err = REDIS_ERR_OTHER;
-						errstr = "alloc slot error!\0";
+						__redisClusterSetError(cc,REDIS_ERR_OOM,
+							"Out of memory");
 						goto error;
 					}
 					
@@ -855,24 +929,43 @@ cluster_update_route_with_nodes(redisClusterContext *cc,
 					
 				}
 
-				for(k = 2; k < count_part; k ++)
-				{
-					sdsfree(part[k]);
-				}
-				free(part);
-				count_part = 0;
-				part = NULL;
 			}
-			else
+			//add slave node
+			else if((cc->flags & CLUSTER_NEED_ADD_SLAVE) && 
+				(role_len >= 5 && memcmp(role, "slave", 5) == 0))
 			{
+				node = node_get_with_nodes(cc, part, count_part, 0);
+				if(node == NULL)
+				{
+					goto error;
+				}
+
+				ret = dictAdd(nodes, 
+					sdsnewlen(node->addr, sdslen(node->addr)), node);
+				if(ret != DICT_OK)
+				{
+					__redisClusterSetError(cc,REDIS_ERR_OTHER,
+						"the address already exists in the nodes");
+					cluster_node_deinit(node);
+					hi_free(node);
+					goto error;
+				}
+
 				if(myself == 1)
 				{
-					myself = 0;
+					node->con = c;
+					c = NULL;
 				}
-				sdsfreesplitres(part, count_part);
-				count_part = 0;
-				part = NULL;
 			}
+
+			if(myself == 1)
+			{
+				myself = 0;
+			}
+
+			sdsfreesplitres(part, count_part);
+			count_part = 0;
+			part = NULL;
 			
 			start = pos + 1;
 			line_start = start;
@@ -916,21 +1009,12 @@ cluster_update_route_with_nodes(redisClusterContext *cc,
 	return REDIS_OK;
 
 error:
-
-	__redisClusterSetError(cc, err, errstr);
 		
 	if(part != NULL)
 	{
 		sdsfreesplitres(part, count_part);
 		count_part = 0;
 		part = NULL;
-	}
-
-	if(ip_port != NULL)
-	{
-		sdsfreesplitres(ip_port, count_ip_port);
-		count_ip_port = 0;
-		ip_port = NULL;
 	}
 
 	if(slot_start_end != NULL)
@@ -1597,7 +1681,6 @@ int __redisClusterGetReply(redisClusterContext *cc, int slot_num, void **reply)
 {
 	cluster_node *node;
 	redisContext *c;
-	redisReply *r;
 	
 	if(cc == NULL || slot_num < 0 || reply == NULL)
 	{
@@ -1638,10 +1721,7 @@ int __redisClusterGetReply(redisClusterContext *cc, int slot_num, void **reply)
 		return REDIS_ERR;
 	}
 
-	r = *reply;
-	if(r->type == REDIS_REPLY_ERROR && 
-		(int)strlen(REDIS_ERROR_MOVED) < r->len && 
-		strncmp(r->str, REDIS_ERROR_MOVED, strlen(REDIS_ERROR_MOVED)) == 0)
+	if(cluster_reply_error_type(*reply) == CLUSTER_ERR_MOVED)
 	{
 		cc->need_update_route = 1;
 	}
@@ -1747,11 +1827,11 @@ static void *redis_cluster_command_execute(redisClusterContext *cc,
 {
 	int ret;
 	void *reply = NULL;
-	redisReply *reply_check = NULL;
 	cluster_node *node;
 	redisContext *c = NULL;
+	CLUSTER_ERR_TYPE error_type;
 
-moved_retry:
+retry:
 	
 	node = node_get_by_table(cc, (uint32_t)command->slot_num);
 	if(node == NULL)
@@ -1806,12 +1886,20 @@ ask_retry:
 		return NULL;
 	}
 
-	reply_check = reply;
-	if(reply_check->type == REDIS_REPLY_ERROR)
+	error_type = cluster_reply_error_type(reply);
+	if(error_type > CLUSTER_NOT_ERR && error_type < CLUSTER_ERR_SENTINEL)
 	{
-		if((int)strlen(REDIS_ERROR_MOVED) < reply_check->len && 
-			strncmp(reply_check->str, REDIS_ERROR_MOVED, strlen(REDIS_ERROR_MOVED)) == 0)
+		cc->retry_count ++;
+		if(cc->retry_count > cc->max_redirect_count)
 		{
+			__redisClusterSetError(cc, REDIS_ERR_CLUSTER_TOO_MANY_REDIRECT, 
+				"too many cluster redirect");
+			return NULL;
+		}
+		
+		switch(error_type)
+		{
+		case CLUSTER_ERR_MOVED:
 			freeReplyObject(reply);
 			reply = NULL;
 			ret = cluster_update_route(cc);
@@ -1821,91 +1909,15 @@ ask_retry:
 					"route update error, please recreate redisClusterContext!");
 				return NULL;
 			}
-
-			cc->retry_count ++;
-			if(cc->retry_count > cc->max_redirect_count)
+			
+			goto retry;
+			
+			break;
+		case CLUSTER_ERR_ASK:
+			node = node_get_by_ask_error_reply(cc, reply);
+			if(node == NULL)
 			{
-				__redisClusterSetError(cc, REDIS_ERR_CLUSTER_TOO_MANY_REDIRECT, 
-					"too many cluster redirect");
 				return NULL;
-			}
-			
-			goto moved_retry;
-		}
-		else if((int)strlen(REDIS_ERROR_ASK) < reply_check->len && 
-			strncmp(reply_check->str, REDIS_ERROR_ASK, strlen(REDIS_ERROR_ASK)) == 0)
-		{
-			sds *part = NULL, *ip_port = NULL;
-			int part_len = 0, ip_port_len;
-			dictEntry *de;
-			
-			part = sdssplitlen(reply_check->str, reply_check->len, 
-				" ", 1, &part_len);
-
-			if(part != NULL && part_len == 3)
-			{
-				ip_port = sdssplitlen(part[2], sdslen(part[2]), 
-					":", 1, &ip_port_len);
-
-				if(ip_port != NULL && ip_port_len == 2)
-				{
-					de = dictFind(cc->nodes, part[2]);
-					if(de == NULL)
-					{
-						node = hi_alloc(sizeof(cluster_node));
-						if(node == NULL)
-						{
-							__redisClusterSetError(cc, REDIS_ERR_OTHER, 
-								"alloc cluster node error!");
-							sdsfreesplitres(part, part_len);
-							part = NULL;
-							sdsfreesplitres(ip_port, ip_port_len);
-							ip_port = NULL;
-							
-							return NULL;
-						}
-
-						cluster_node_init(node);
-						node->addr = part[1];
-						node->host = ip_port[0];
-						node->port = hi_atoi(ip_port[1], sdslen(ip_port[1]));
-						node->master = 1;
-
-						dictAdd(cc->nodes, sdsnewlen(node->addr, sdslen(node->addr)), node);
-						
-						part = NULL;
-						ip_port = NULL;
-					}
-					else
-					{
-						node = de->val;
-
-						sdsfreesplitres(part, part_len);
-						part = NULL;
-						sdsfreesplitres(ip_port, ip_port_len);
-						ip_port = NULL;
-					}
-
-					c = ctx_get_by_node(node, cc->timeout, cc->flags);
-					if(c == NULL)
-					{
-						__redisClusterSetError(cc, REDIS_ERR_OTHER, "ctx get by node error");
-						return NULL;
-					}
-
-				}
-
-				if(part != NULL)
-				{
-					sdsfreesplitres(part, part_len);
-					part = NULL;
-				}
-
-				if(ip_port != NULL)
-				{
-					sdsfreesplitres(ip_port, ip_port_len);
-					ip_port = NULL;
-				}
 			}
 
 			freeReplyObject(reply);
@@ -1915,19 +1927,24 @@ ask_retry:
 
 			freeReplyObject(reply);
 			reply = NULL;
-
-			cc->retry_count ++;
-			if(cc->retry_count > cc->max_redirect_count)
-			{
-				__redisClusterSetError(cc, REDIS_ERR_CLUSTER_TOO_MANY_REDIRECT, 
-					"too many cluster redirect");
-				return NULL;
-			}
 			
 			goto ask_retry;
-		}	
-	}
 
+			break;
+		case CLUSTER_ERR_TRYAGAIN:
+		case CLUSTER_ERR_CROSSSLOT:
+		case CLUSTER_ERR_CLUSTERDOWN:
+			freeReplyObject(reply);
+			reply = NULL;
+			goto retry;
+			
+			break;
+		default:
+
+			break;
+		}
+	}
+	
 	return reply;
 }
 
@@ -3005,12 +3022,18 @@ static redisAsyncContext * actx_get_by_node(redisClusterAsyncContext *acc,
 	ac = node->acon;
 	if(ac != NULL)
 	{
+		/*
 		if(ac->c.err)
 		{
 			redisReconnect(&ac->c);
 		}
 
 		return ac;
+		*/
+		if(ac->c.err == 0)
+		{
+			return ac;
+		}
 	}
 
 	if(node->host == NULL || node->port <= 0)
@@ -3167,15 +3190,16 @@ static void redisClusterAsyncCallback(redisAsyncContext *ac, void *r, void *priv
 			goto retry;
 		}
 		*/
-		__redisClusterAsyncSetError(acc, ac->err, 
-			ac->errstr);
+		//__redisClusterAsyncSetError(acc, ac->err, 
+		//	ac->errstr);
 		
-		goto done;
+		//goto done;
 	}
 
 	error_type = cluster_reply_error_type(reply);
 
-	if(error_type > CLUSTER_NOT_ERR && error_type < CLUSTER_ERR_SENTINEL)
+	if((error_type > CLUSTER_NOT_ERR && error_type < CLUSTER_ERR_SENTINEL) 
+		|| error_type == REDIS_ERR)
 	{
 		cad->retry_count ++;
 
@@ -3190,6 +3214,7 @@ static void redisClusterAsyncCallback(redisAsyncContext *ac, void *r, void *priv
 		
 		switch(error_type)
 		{
+		case REDIS_ERR:
 		case CLUSTER_ERR_MOVED:
 			ret = cluster_update_route(cc);
 			if(ret != REDIS_OK)

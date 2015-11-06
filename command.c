@@ -1116,7 +1116,6 @@ redis_parse_cmd(struct cmd *r)
                 }
                 kpos->start = m;
                 kpos->end = p;
-				//kpos->v_len = 0;
 
                 state = SW_KEY_LF;
             }
@@ -1196,26 +1195,6 @@ redis_parse_cmd(struct cmd *r)
                 }
                 rnarg--;
                 token = NULL;
-
-				/*
-				//for mset value length
-				if(redis_argkvx(r))
-				{
-					struct keypos *kpos;
-					uint32_t array_len = array_n(r->keys);
-					if(array_len == 0)
-					{
-						goto error;
-					}
-					
-					kpos = array_n(r->keys, array_len-1);
-	                if (kpos == NULL || kpos->v_len != 0) {
-	                    goto error;
-	                }
-
-					kpos->v_len = rlen;
-				}
-				*/
                 state = SW_ARG1_LEN_LF;
             } else {
                 goto error;

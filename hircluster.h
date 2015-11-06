@@ -62,6 +62,8 @@ typedef struct redisClusterContext {
 	int need_update_route;
 } redisClusterContext;
 
+void redisClusterSetOptionAddSlave(redisClusterContext *cc);
+
 redisClusterContext *redisClusterConnect(const char *addrs);
 redisClusterContext *redisClusterConnectWithTimeout(const char *addrs, 
 	const struct timeval tv);
