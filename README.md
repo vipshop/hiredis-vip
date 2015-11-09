@@ -4,21 +4,10 @@
 
 Hiredis is a minimalistic C client library for the [Redis](http://redis.io/) database.
 
-It is minimalistic because it just adds minimal support for the protocol, but
-at the same time it uses a high level printf-alike API in order to make it
-much higher level than otherwise suggested by its minimal code base and the
-lack of explicit bindings for every Redis command.
-
-Apart from supporting sending commands and receiving replies, it comes with
-a reply parser that is decoupled from the I/O layer. It
-is a stream parser designed for easy reusability, which can for instance be used
-in higher level language bindings for efficient reply parsing.
-
-Hiredis only supports the binary-safe Redis protocol, so you can use it with any
-Redis version >= 1.2.0.
+We supported redis cluster for hiredis.
 
 The library comes with multiple APIs. There is the
-*synchronous API*, the *asynchronous API* and the *reply parsing API*.
+*cluster API*, *synchronous API*, the *asynchronous API* and the *reply parsing API*.
 
 ## CLUSTER SUPPORT
 
@@ -39,9 +28,9 @@ The library comes with multiple APIs. There is the
 ### CLUSTER API:
 
 ```c
-redisClusterContext *redisClusterConnect(const char *addrs);
-redisClusterContext *redisClusterConnectWithTimeout(const char *addrs, const struct timeval tv);
-redisClusterContext *redisClusterConnectNonBlock(const char *addrs);
+redisClusterContext *redisClusterConnect(const char *addrs, int flags);
+redisClusterContext *redisClusterConnectWithTimeout(const char *addrs, const struct timeval tv, int flags);
+redisClusterContext *redisClusterConnectNonBlock(const char *addrs, int flags);
 void redisClusterFree(redisClusterContext *cc);
 void redisClusterSetMaxRedirect(redisClusterContext *cc, int max_redirect_count);
 void *redisClusterCommand(redisClusterContext *cc, const char *format, ...);
@@ -51,7 +40,7 @@ int redisClusterAppendCommandArgv(redisClusterContext *cc, int argc, const char 
 int redisClusterGetReply(redisClusterContext *cc, void **reply);
 void redisCLusterReset(redisClusterContext *cc);
 
-redisClusterAsyncContext *redisClusterAsyncConnect(const char *addrs);
+redisClusterAsyncContext *redisClusterAsyncConnect(const char *addrs, int flags);
 int redisClusterAsyncSetConnectCallback(redisClusterAsyncContext *acc, redisConnectCallback *fn);
 int redisClusterAsyncSetDisconnectCallback(redisClusterAsyncContext *acc, redisDisconnectCallback *fn);
 int redisClusterAsyncCommand(redisClusterAsyncContext *acc, redisCallbackFn *fn, void *privdata, const char *format, ...);

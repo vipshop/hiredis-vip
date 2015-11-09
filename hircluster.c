@@ -13,12 +13,6 @@
 #include "dict.c"
 #include "async.h"
 
-/* The flag to decide whether add slave node 
-  * in redisClusterContext->nodes. This is set in the
-  * least significant bit of the flags field in redisClusterContext. */
-#define CLUSTER_NEED_ADD_SLAVE 0x10000000
-
-
 #define REDIS_COMMAND_CLUSTER_NODES "CLUSTER NODES"
 #define REDIS_COMMAND_CLUSTER_SLOTS "CLUSTER SLOTS"
 
@@ -55,6 +49,13 @@ typedef enum CLUSTER_ERR_TYPE{
 
 static void cluster_node_deinit(cluster_node *node);
 
+void listClusterNodeDestructor(void *val)
+{
+    cluster_node_deinit(val);
+
+	hi_free(val);
+}
+
 unsigned int dictSdsHash(const void *key) {
     return dictGenHashFunction((unsigned char*)key, sdslen((char*)key));
 }
@@ -87,8 +88,11 @@ void dictClusterNodeDestructor(void *privdata, void *val)
 	hi_free(val);
 }
 
-/* Cluster nodes hash table, mapping nodes addresses 1.2.3.4:6379 to
- * clusterNode structures. */
+/* Cluster nodes hash table, mapping nodes 
+ * name(437c719f50dc9d0745032f3b280ce7ecc40792ac)  
+ * or addresses(1.2.3.4:6379) to clusterNode structures.
+ * Those nodes need destroy.
+ */
 dictType clusterNodesDictType = {
     dictSdsHash,                /* hash function */
     NULL,                       /* key dup */
@@ -97,6 +101,21 @@ dictType clusterNodesDictType = {
     dictSdsDestructor,          /* key destructor */
     dictClusterNodeDestructor   /* val destructor */
 };
+
+/* Cluster nodes hash table, mapping nodes 
+ * name(437c719f50dc9d0745032f3b280ce7ecc40792ac)  
+ * or addresses(1.2.3.4:6379) to clusterNode structures.
+ * Those nodes do not need destroy.
+ */
+dictType clusterNodesRefDictType = {
+    dictSdsHash,                /* hash function */
+    NULL,                       /* key dup */
+    NULL,                       /* val dup */
+    dictSdsKeyCompare,          /* key compare */
+    dictSdsDestructor,          /* key destructor */
+    NULL   						/* val destructor */
+};
+
 
 void listCommandFree(void *command)
 {
@@ -180,7 +199,7 @@ static void __redisClusterSetError(redisClusterContext *cc, int type, const char
     }
 }
 
-static CLUSTER_ERR_TYPE cluster_reply_error_type(redisReply *reply)
+static int cluster_reply_error_type(redisReply *reply)
 {
 
 	if(reply == NULL)
@@ -230,9 +249,9 @@ static int cluster_node_init(cluster_node *node)
 	node->addr = NULL;
 	node->host = NULL;
 	node->port = 0;
-	node->master = 1;
+	node->role = REDIS_ROLE_NULL;
 	node->count = 0;
-	node->slave_of = NULL;
+	node->slaves = NULL;
 	node->con = NULL;
 	node->acon = NULL;
 	node->slots = NULL;
@@ -256,8 +275,8 @@ static void cluster_node_deinit(cluster_node *node)
 	sdsfree(node->addr);
 	sdsfree(node->host);
 	node->port = 0;
-	node->master = 1;
-	node->slave_of = NULL;
+	node->role = 1;
+	node->slaves = NULL;
 
 	if(node->con != NULL)
 	{
@@ -273,7 +292,11 @@ static void cluster_node_deinit(cluster_node *node)
 	{
 		listRelease(node->slots);
 	}
-	
+
+	if(node->slaves != NULL)
+	{
+		listRelease(node->slaves);
+	}
 }
 
 static int cluster_slot_init(cluster_slot *slot, cluster_node *node)
@@ -327,22 +350,12 @@ static int cluster_slot_ref_node(cluster_slot *slot, cluster_node *node)
 	return REDIS_OK;
 }
 
-void redisClusterSetOptionAddSlave(redisClusterContext *cc)
-{
-	if(cc == NULL)
-	{
-		return;
-	}
-
-	cc->flags |= CLUSTER_NEED_ADD_SLAVE;
-}
-
 /**
   * Return a new node with the "cluster nodes" command reply.
   */
 static cluster_node *node_get_with_nodes(
 	redisClusterContext *cc,
-	sds *node_infos, int info_count, int role)
+	sds *node_infos, int info_count, uint8_t role)
 {
 	sds *ip_port = NULL;
 	int count_ip_port = 0;
@@ -388,7 +401,7 @@ static cluster_node *node_get_with_nodes(
 	}
 	node->host = ip_port[0];
 	node->port = hi_atoi(ip_port[1], sdslen(ip_port[1]));
-	node->master = role;
+	node->role = role;
 
 	sdsfree(ip_port[1]);
 	free(ip_port);
@@ -461,6 +474,117 @@ cluster_slot_start_cmp(const void *t1, const void *t2)
     const cluster_slot **s1 = t1, **s2 = t2;
 
     return (*s1)->start > (*s2)->start?1:-1;
+}
+
+static int
+cluster_master_slave_mapping(redisClusterContext *cc,
+	dict **nodes, cluster_node *node, sds master_name)
+{
+	int ret;
+	dictEntry *di;
+	cluster_node *node_old;
+	listNode *lnode;
+
+	if(cc == NULL || node == NULL 
+		|| master_name == NULL)
+	{
+		return REDIS_ERR;
+	}
+
+	if(*nodes == NULL)
+	{
+		*nodes = dictCreate(
+			&clusterNodesRefDictType, NULL);
+	}
+
+	di = dictFind(*nodes, master_name);
+	if(di == NULL)
+	{
+		ret = dictAdd(*nodes, 
+			sdsnewlen(master_name, sdslen(master_name)), node);
+		if(ret != DICT_OK)
+		{
+			__redisClusterSetError(cc,REDIS_ERR_OTHER,
+				"the address already exists in the nodes");
+			return REDIS_ERR;
+		}
+
+	}
+	else
+	{
+		node_old = dictGetEntryVal(di);
+		if(node_old == NULL)
+		{
+			__redisClusterSetError(cc,REDIS_ERR_OTHER,
+				"dict get value null");
+			return REDIS_ERR;
+		}
+
+		if(node->role == REDIS_ROLE_MASTER &&
+			node_old->role == REDIS_ROLE_MASTER)
+		{
+			__redisClusterSetError(cc,REDIS_ERR_OTHER,
+				"two masters have the same name");
+			return REDIS_ERR;
+		}
+		else if(node->role == REDIS_ROLE_MASTER
+			&& node_old->role == REDIS_ROLE_SLAVE)
+		{
+			if(node->slaves == NULL)
+			{
+				node->slaves = listCreate();
+				if(node->slaves == NULL)
+				{
+					__redisClusterSetError(cc,REDIS_ERR_OOM,
+						"Out of memory");
+					return REDIS_ERR;
+				}
+
+				node->slaves->free = 
+					listClusterNodeDestructor;
+			}
+		
+			if(node_old->slaves != NULL)
+			{
+				while(listLength(node_old->slaves) > 0)
+				{
+					lnode = listFirst(node_old->slaves);
+					listAddNodeHead(node->slaves, lnode->value);
+					listDelNode(node_old->slaves, lnode);
+				}
+				listRelease(node_old->slaves);
+				node_old->slaves = NULL;
+			}
+
+			listAddNodeHead(node->slaves, node_old);
+
+			dictSetHashVal(*nodes, di, node);
+		}
+		else if(node->role == REDIS_ROLE_SLAVE)
+		{
+			if(node_old->slaves == NULL)
+			{
+				node_old->slaves = listCreate();
+				if(node_old->slaves == NULL)
+				{
+					__redisClusterSetError(cc,REDIS_ERR_OOM,
+						"Out of memory");
+					return REDIS_ERR;
+				}
+
+				node_old->slaves->free = 
+					listClusterNodeDestructor;
+			}
+
+			listAddNodeTail(node_old->slaves, node);
+		}
+		else
+		{
+			NOT_REACHED();
+		}
+	}
+				
+	return REDIS_OK;
 }
 
 /*
@@ -708,7 +832,8 @@ cluster_update_route_with_nodes(redisClusterContext *cc,
 	redisReply *reply = NULL;
 	struct hiarray *slots = NULL;
 	dict *nodes = NULL;
-	cluster_node *node;
+	dict *nodes_name = NULL;
+	cluster_node *master, *slave;
 	cluster_slot **slot;
 	char *pos, *start, *end, *line_start, *line_end;
 	char *role;
@@ -831,26 +956,39 @@ cluster_update_route_with_nodes(redisClusterContext *cc,
 					goto error;
 				}
 				
-				node = node_get_with_nodes(cc, part, count_part, 1);
-				if(node == NULL)
+				master = node_get_with_nodes(cc, 
+					part, count_part, REDIS_ROLE_MASTER);
+				if(master == NULL)
 				{
 					goto error;
 				}
 
 				ret = dictAdd(nodes, 
-					sdsnewlen(node->addr, sdslen(node->addr)), node);
+					sdsnewlen(master->addr, sdslen(master->addr)), master);
 				if(ret != DICT_OK)
 				{
 					__redisClusterSetError(cc,REDIS_ERR_OTHER,
 						"the address already exists in the nodes");
-					cluster_node_deinit(node);
-					hi_free(node);
+					cluster_node_deinit(master);
+					hi_free(master);
 					goto error;
+				}
+
+				if(cc->flags & HIRCLUSTER_FLAG_ADD_SLAVE)
+				{
+					ret = cluster_master_slave_mapping(cc, 
+						&nodes_name, master, master->name);
+					if(ret != REDIS_OK)
+					{
+						cluster_node_deinit(master);
+						hi_free(master);
+						goto error;
+					}
 				}
 				
 				if(myself == 1)
 				{
-					node->con = c;
+					master->con = c;
 					c = NULL;
 				}
 				
@@ -902,7 +1040,7 @@ cluster_update_route_with_nodes(redisClusterContext *cc,
 								"diffent node hold a same slot");
 							goto error;
 						}
-						table[j] = node;
+						table[j] = master;
 					}
 					
 					slot = hiarray_push(slots);
@@ -925,35 +1063,34 @@ cluster_update_route_with_nodes(redisClusterContext *cc,
 
 					(*slot)->start = (uint32_t)slot_start;
 					(*slot)->end = (uint32_t)slot_end;
-					cluster_slot_ref_node(*slot, node);
+					cluster_slot_ref_node(*slot, master);
 					
 				}
 
 			}
 			//add slave node
-			else if((cc->flags & CLUSTER_NEED_ADD_SLAVE) && 
+			else if((cc->flags & HIRCLUSTER_FLAG_ADD_SLAVE) && 
 				(role_len >= 5 && memcmp(role, "slave", 5) == 0))
 			{
-				node = node_get_with_nodes(cc, part, count_part, 0);
-				if(node == NULL)
+				slave = node_get_with_nodes(cc, part, 
+					count_part, REDIS_ROLE_SLAVE);
+				if(slave == NULL)
 				{
 					goto error;
 				}
 
-				ret = dictAdd(nodes, 
-					sdsnewlen(node->addr, sdslen(node->addr)), node);
-				if(ret != DICT_OK)
+				ret = cluster_master_slave_mapping(cc, 
+					&nodes_name, slave, part[3]);
+				if(ret != REDIS_OK)
 				{
-					__redisClusterSetError(cc,REDIS_ERR_OTHER,
-						"the address already exists in the nodes");
-					cluster_node_deinit(node);
-					hi_free(node);
+					cluster_node_deinit(slave);
+					hi_free(slave);
 					goto error;
 				}
-
+				
 				if(myself == 1)
 				{
-					node->con = c;
+					slave->con = c;
 					c = NULL;
 				}
 			}
@@ -1048,6 +1185,11 @@ error:
 		}
 
 		dictRelease(cc->nodes);
+	}
+
+	if(nodes_name != NULL)
+	{
+		dictRelease(nodes_name);
 	}
 
 	if(reply != NULL)
@@ -1330,7 +1472,7 @@ static redisClusterContext *_redisClusterConnect(redisClusterContext *cc, const 
     return cc;
 }
 
-redisClusterContext *redisClusterConnect(const char *addrs)
+redisClusterContext *redisClusterConnect(const char *addrs, int flags)
 {
 	redisClusterContext *cc;
 
@@ -1342,11 +1484,16 @@ redisClusterContext *redisClusterConnect(const char *addrs)
 	}
 
 	cc->flags |= REDIS_BLOCK;
-
+	if(flags)
+	{
+		cc->flags |= flags;
+	}
+	
 	return _redisClusterConnect(cc, addrs);
 }
 
-redisClusterContext *redisClusterConnectWithTimeout(const char *addrs, const struct timeval tv)
+redisClusterContext *redisClusterConnectWithTimeout(
+	const char *addrs, const struct timeval tv, int flags)
 {
 	redisClusterContext *cc;
 
@@ -1358,7 +1505,11 @@ redisClusterContext *redisClusterConnectWithTimeout(const char *addrs, const str
 	}
 
 	cc->flags |= REDIS_BLOCK;
-
+	if(flags)
+	{
+		cc->flags |= flags;
+	}
+	
     if (cc->timeout == NULL)
     {
         cc->timeout = malloc(sizeof(struct timeval));
@@ -1369,7 +1520,7 @@ redisClusterContext *redisClusterConnectWithTimeout(const char *addrs, const str
 	return _redisClusterConnect(cc, addrs);
 }
 
-redisClusterContext *redisClusterConnectNonBlock(const char *addrs) {
+redisClusterContext *redisClusterConnectNonBlock(const char *addrs, int flags) {
 
 	redisClusterContext *cc;
 
@@ -1381,7 +1532,11 @@ redisClusterContext *redisClusterConnectNonBlock(const char *addrs) {
 	}
 
 	cc->flags &= ~REDIS_BLOCK;
-
+	if(flags)
+	{
+		cc->flags |= flags;
+	}
+	
 	return _redisClusterConnect(cc, addrs);
 }
 
@@ -1774,7 +1929,7 @@ static cluster_node *node_get_by_ask_error_reply(
 				node->addr = part[1];
 				node->host = ip_port[0];
 				node->port = hi_atoi(ip_port[1], sdslen(ip_port[1]));
-				node->master = 1;
+				node->role = REDIS_ROLE_MASTER;
 
 				dictAdd(cc->nodes, sdsnewlen(node->addr, sdslen(node->addr)), node);
 				
@@ -1829,7 +1984,7 @@ static void *redis_cluster_command_execute(redisClusterContext *cc,
 	void *reply = NULL;
 	cluster_node *node;
 	redisContext *c = NULL;
-	CLUSTER_ERR_TYPE error_type;
+	int error_type;
 
 retry:
 	
@@ -3069,12 +3224,12 @@ static redisAsyncContext * actx_get_by_node(redisClusterAsyncContext *acc,
 	return ac;
 }
 
-redisClusterAsyncContext *redisClusterAsyncConnect(const char *addrs) {
+redisClusterAsyncContext *redisClusterAsyncConnect(const char *addrs, int flags) {
 
     redisClusterContext *cc;
     redisClusterAsyncContext *acc;
 
-	cc = redisClusterConnectNonBlock(addrs);
+	cc = redisClusterConnectNonBlock(addrs, flags);
 	if(cc == NULL)
 	{
 		return NULL;
@@ -3115,7 +3270,7 @@ static void redisClusterAsyncCallback(redisAsyncContext *ac, void *r, void *priv
 	redisClusterAsyncContext *acc;
 	redisClusterContext *cc;
 	redisAsyncContext *ac_retry = NULL;
-	CLUSTER_ERR_TYPE error_type;
+	int error_type;
 	cluster_node *node;
 	struct cmd *command;
 

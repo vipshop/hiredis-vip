@@ -8,6 +8,17 @@
 
 #define REDIS_CLUSTER_SLOTS 16384
 
+#define REDIS_ROLE_NULL 	0
+#define REDIS_ROLE_MASTER 	1
+#define REDIS_ROLE_SLAVE 	2
+
+
+#define HIRCLUSTER_FLAG_NULL		0x0
+/* The flag to decide whether add slave node 
+  * in redisClusterContext->nodes. This is set in the
+  * least significant bit of the flags field in redisClusterContext. */
+#define HIRCLUSTER_FLAG_ADD_SLAVE	0x10000000
+
 struct dict;
 
 typedef struct cluster_node
@@ -17,11 +28,11 @@ typedef struct cluster_node
 	sds host;
 	int port;
 	int count;
-	uint8_t master;
+	uint8_t role;
 	redisContext *con;
 	redisAsyncContext *acon;
 	list *slots;
-	struct cluster_node *slave_of;
+	list *slaves;
 }cluster_node;
 
 typedef struct cluster_slot
@@ -62,13 +73,10 @@ typedef struct redisClusterContext {
 	int need_update_route;
 } redisClusterContext;
 
-void redisClusterSetOptionAddSlave(redisClusterContext *cc);
-
-redisClusterContext *redisClusterConnect(const char *addrs);
+redisClusterContext *redisClusterConnect(const char *addrs, int flags);
 redisClusterContext *redisClusterConnectWithTimeout(const char *addrs, 
-	const struct timeval tv);
-redisClusterContext *redisClusterConnectNonBlock(const char *addrs);
-
+	const struct timeval tv, int flags);
+redisClusterContext *redisClusterConnectNonBlock(const char *addrs, int flags);
 
 void redisClusterFree(redisClusterContext *cc);
 
@@ -116,7 +124,7 @@ typedef struct redisClusterAsyncContext {
 
 } redisClusterAsyncContext;
 
-redisClusterAsyncContext *redisClusterAsyncConnect(const char *addrs);
+redisClusterAsyncContext *redisClusterAsyncConnect(const char *addrs, int flags);
 int redisClusterAsyncSetConnectCallback(redisClusterAsyncContext *acc, redisConnectCallback *fn);
 int redisClusterAsyncSetDisconnectCallback(redisClusterAsyncContext *acc, redisDisconnectCallback *fn);
 int redisClusterAsyncCommand(redisClusterAsyncContext *acc, redisClusterCallbackFn *fn, void *privdata, const char *format, ...);
