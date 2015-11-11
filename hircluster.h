@@ -6,6 +6,10 @@
 #include "adlist.h"
 #include "async.h"
 
+#define HIREDIS_VIP_MAJOR 0
+#define HIREDIS_VIP_MINOR 2
+#define HIREDIS_VIP_PATCH 0
+
 #define REDIS_CLUSTER_SLOTS 16384
 
 #define REDIS_ROLE_NULL 	0
@@ -90,6 +94,8 @@ int redisClusterAppendCommand(redisClusterContext *cc, const char *format, ...);
 int redisClusterAppendCommandArgv(redisClusterContext *cc, int argc, const char **argv);
 int redisClusterGetReply(redisClusterContext *cc, void **reply);
 void redisCLusterReset(redisClusterContext *cc);
+
+int test_cluster_update_route(redisClusterContext *cc);
 
 
 /*############redis cluster async############*/

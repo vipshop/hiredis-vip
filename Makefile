@@ -6,16 +6,16 @@
 OBJ=net.o hiredis.o sds.o async.o read.o hiarray.o hiutil.o command.o crc16.o adlist.o hircluster.o
 EXAMPLES=hiredis-example hiredis-example-libevent hiredis-example-libev hiredis-example-glib
 TESTS=hiredis-test
-LIBNAME=libhiredis
+LIBNAME=libhiredis_vip
 PKGCONFNAME=hiredis.pc
 
-HIREDIS_MAJOR=$(shell grep HIREDIS_MAJOR hiredis.h | awk '{print $$3}')
-HIREDIS_MINOR=$(shell grep HIREDIS_MINOR hiredis.h | awk '{print $$3}')
-HIREDIS_PATCH=$(shell grep HIREDIS_PATCH hiredis.h | awk '{print $$3}')
+HIREDIS_VIP_MAJOR=$(shell grep HIREDIS_VIP_MAJOR hircluster.h | awk '{print $$3}')
+HIREDIS_VIP_MINOR=$(shell grep HIREDIS_VIP_MINOR hircluster.h | awk '{print $$3}')
+HIREDIS_VIP_PATCH=$(shell grep HIREDIS_VIP_PATCH hircluster.h | awk '{print $$3}')
 
 # Installation related variables and target
 PREFIX?=/usr/local
-INCLUDE_PATH?=include/hiredis
+INCLUDE_PATH?=include/hiredis-vip
 LIBRARY_PATH?=lib
 PKGCONF_PATH?=pkgconfig
 INSTALL_INCLUDE_PATH= $(DESTDIR)$(PREFIX)/$(INCLUDE_PATH)
@@ -44,8 +44,8 @@ REAL_LDFLAGS=$(LDFLAGS) $(ARCH)
 
 DYLIBSUFFIX=so
 STLIBSUFFIX=a
-DYLIB_MINOR_NAME=$(LIBNAME).$(DYLIBSUFFIX).$(HIREDIS_MAJOR).$(HIREDIS_MINOR)
-DYLIB_MAJOR_NAME=$(LIBNAME).$(DYLIBSUFFIX).$(HIREDIS_MAJOR)
+DYLIB_MINOR_NAME=$(LIBNAME).$(DYLIBSUFFIX).$(HIREDIS_VIP_MAJOR).$(HIREDIS_VIP_MINOR)
+DYLIB_MAJOR_NAME=$(LIBNAME).$(DYLIBSUFFIX).$(HIREDIS_VIP_MAJOR)
 DYLIBNAME=$(LIBNAME).$(DYLIBSUFFIX)
 DYLIB_MAKE_CMD=$(CC) -shared -Wl,-soname,$(DYLIB_MINOR_NAME) -o $(DYLIBNAME) $(LDFLAGS)
 STLIBNAME=$(LIBNAME).$(STLIBSUFFIX)
@@ -60,8 +60,8 @@ ifeq ($(uname_S),SunOS)
 endif
 ifeq ($(uname_S),Darwin)
   DYLIBSUFFIX=dylib
-  DYLIB_MINOR_NAME=$(LIBNAME).$(HIREDIS_MAJOR).$(HIREDIS_MINOR).$(DYLIBSUFFIX)
-  DYLIB_MAJOR_NAME=$(LIBNAME).$(HIREDIS_MAJOR).$(DYLIBSUFFIX)
+  DYLIB_MINOR_NAME=$(LIBNAME).$(HIREDIS_VIP_MAJOR).$(HIREDIS_VIP_MINOR).$(DYLIBSUFFIX)
+  DYLIB_MAJOR_NAME=$(LIBNAME).$(HIREDIS_VIP_MAJOR).$(DYLIBSUFFIX)
   DYLIB_MAKE_CMD=$(CC) -shared -Wl,-install_name,$(DYLIB_MINOR_NAME) -o $(DYLIBNAME) $(LDFLAGS)
 endif
 
@@ -163,7 +163,7 @@ $(PKGCONFNAME): hiredis.h
 	@echo >> $@
 	@echo Name: hiredis >> $@
 	@echo Description: Minimalistic C client library for Redis. >> $@
-	@echo Version: $(HIREDIS_MAJOR).$(HIREDIS_MINOR).$(HIREDIS_PATCH) >> $@
+	@echo Version: $(HIREDIS_VIP_MAJOR).$(HIREDIS_VIP_MINOR).$(HIREDIS_VIP_PATCH) >> $@
 	@echo Libs: -L\$${libdir} -lhiredis >> $@
 	@echo Cflags: -I\$${includedir} -D_FILE_OFFSET_BITS=64 >> $@
 

@@ -276,7 +276,6 @@ static void cluster_node_deinit(cluster_node *node)
 	sdsfree(node->host);
 	node->port = 0;
 	node->role = 1;
-	node->slaves = NULL;
 
 	if(node->con != NULL)
 	{
@@ -376,7 +375,7 @@ static cluster_node *node_get_with_nodes(
 	
 	cluster_node_init(node);
 
-	if(role)
+	if(role == REDIS_ROLE_MASTER)
 	{
 		node->slots = listCreate();
 		if(node->slots == NULL)
@@ -546,6 +545,7 @@ cluster_master_slave_mapping(redisClusterContext *cc,
 		
 			if(node_old->slaves != NULL)
 			{
+				node_old->slaves->free = NULL;
 				while(listLength(node_old->slaves) > 0)
 				{
 					lnode = listFirst(node_old->slaves);
@@ -1142,6 +1142,11 @@ cluster_update_route_with_nodes(redisClusterContext *cc,
 	{
 		redisFree(c);
 	}
+
+	if(nodes_name != NULL)
+	{
+		dictRelease(nodes_name);
+	}
 	
 	return REDIS_OK;
 
@@ -1258,6 +1263,8 @@ cluster_update_route(redisClusterContext *cc)
 				cc->err = 0;
 				memset(cc->errstr, '\0', strlen(cc->errstr));
 			}
+			
+			dictReleaseIterator(it);
 			return REDIS_OK;
 		}
 
@@ -1274,6 +1281,59 @@ cluster_update_route(redisClusterContext *cc)
 	return REDIS_ERR;
 }
 
+static void print_cluster_node_list(redisClusterContext *cc)
+{
+	dictIterator *di = NULL;
+    dictEntry *de;
+	listIter *it;
+	listNode *ln;
+	cluster_node *master, *slave;
+	list *slaves;
+
+	if(cc == NULL)
+	{
+		return;
+	}
+
+	di = dictGetIterator(cc->nodes);
+
+	printf("name\taddress\trole\tslaves\n");
+	
+	while((de = dictNext(di)) != NULL) {
+        master = dictGetEntryVal(de);
+
+		printf("%s\t%s\t%d\t%s\n",master->name, master->addr, 
+			master->role, master->slaves?"hava":"null");
+
+		slaves = master->slaves;
+		if(slaves == NULL)
+		{
+			continue;
+		}
+		
+		it = listGetIterator(slaves, AL_START_HEAD);
+		while((ln = listNext(it)) != NULL)
+		{
+			slave = listNodeValue(ln);
+			printf("%s\t%s\t%d\t%s\n",slave->name, slave->addr, 
+				slave->role, slave->slaves?"hava":"null");
+		}
+
+		printf("\n");
+	}
+}
+
+
+int test_cluster_update_route(redisClusterContext *cc)
+{
+	int ret;
+	
+	ret = cluster_update_route(cc);
+
+	//print_cluster_node_list(cc);
+	
+	return ret;
+}
 
 static redisClusterContext *redisClusterContextInit(void) {
     redisClusterContext *cc;
