@@ -1,5 +1,6 @@
 #include <stdlib.h>
 
+#include "hiutil.h"
 #include "hiarray.h"
 
 struct hiarray *

@@ -3,10 +3,8 @@
 
 #include <stdio.h>
 
-#include "hiutil.h"
-
 typedef int (*hiarray_compare_t)(const void *, const void *);
-typedef rstatus_t (*hiarray_each_t)(void *, void *);
+typedef int (*hiarray_each_t)(void *, void *);
 
 struct hiarray {
     uint32_t nelem;  /* # element */
@@ -43,7 +41,7 @@ hiarray_n(const struct hiarray *a)
 
 struct hiarray *hiarray_create(uint32_t n, size_t size);
 void hiarray_destroy(struct hiarray *a);
-rstatus_t hiarray_init(struct hiarray *a, uint32_t n, size_t size);
+int hiarray_init(struct hiarray *a, uint32_t n, size_t size);
 void hiarray_deinit(struct hiarray *a);
 
 uint32_t hiarray_idx(struct hiarray *a, void *elem);
@@ -53,6 +51,6 @@ void *hiarray_get(struct hiarray *a, uint32_t idx);
 void *hiarray_top(struct hiarray *a);
 void hiarray_swap(struct hiarray *a, struct hiarray *b);
 void hiarray_sort(struct hiarray *a, hiarray_compare_t compare);
-rstatus_t hiarray_each(struct hiarray *a, hiarray_each_t func, void *data);
+int hiarray_each(struct hiarray *a, hiarray_each_t func, void *data);
 
 #endif
