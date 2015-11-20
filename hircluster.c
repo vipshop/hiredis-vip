@@ -928,6 +928,20 @@ cluster_update_route_with_nodes(redisClusterContext *cc,
                 goto error;
             }
 
+            //the address string is ":0", skip this node.
+            if(sdslen(part[1]) == 2 && strcmp(part[1], ":0") == 0)
+            {
+                sdsfreesplitres(part, count_part);
+                count_part = 0;
+                part = NULL;
+                
+                start = pos + 1;
+                line_start = start;
+                pos = start;
+                
+                continue;
+            }
+
             if(sdslen(part[2]) >= 7 && memcmp(part[2], "myself,", 7) == 0)
             {
                 role_len = sdslen(part[2]) - 7;
@@ -1122,6 +1136,7 @@ cluster_update_route_with_nodes(redisClusterContext *cc,
     if(cc->nodes != NULL)
     {
         dictRelease(cc->nodes);
+        cc->nodes = NULL;
     }
     cc->nodes = nodes;
 
@@ -1183,7 +1198,7 @@ error:
             cc->nodes = NULL;
         }
 
-        dictRelease(cc->nodes);
+        dictRelease(nodes);
     }
 
     if(nodes_name != NULL)

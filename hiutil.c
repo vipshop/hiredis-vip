@@ -189,50 +189,50 @@ _hi_atoi(uint8_t *line, size_t n)
 void 
 _hi_itoa(uint8_t *s, int num)
 {
-	uint8_t c;
-	uint8_t sign = 0;
+    uint8_t c;
+    uint8_t sign = 0;
 
-	if(s == NULL)
-	{
-		return;
-	}
+    if(s == NULL)
+    {
+        return;
+    }
 
-	uint32_t len, i;
+    uint32_t len, i;
     len = 0;
 
-	if(num < 0)
-	{
-		sign = 1;
-		num = abs(num);
-	}
-	else if(num == 0)
-	{
-		s[len++] = '0';
-		return;
-	}
+    if(num < 0)
+    {
+        sign = 1;
+        num = abs(num);
+    }
+    else if(num == 0)
+    {
+        s[len++] = '0';
+        return;
+    }
 
     while(num % 10 || num /10)
     {
-    	c = num %10 + '0';
+        c = num %10 + '0';
         num = num /10;
         s[len+1] = s[len];
         s[len] = c;
         len ++;
     }
 
-	if(sign == 1)
-	{
-		s[len++] = '-';
-	}
+    if(sign == 1)
+    {
+        s[len++] = '-';
+    }
 
-	s[len] = '\0';
-	
-	for(i = 0; i < len/2; i ++)
-	{
-		c = s[i];
-		s[i] = s[len - i -1];
-		s[len - i -1] = c;
-	}
+    s[len] = '\0';
+    
+    for(i = 0; i < len/2; i ++)
+    {
+        c = s[i];
+        s[i] = s[len - i -1];
+        s[len - i -1] = c;
+    }
 
 }
 
@@ -249,20 +249,20 @@ hi_valid_port(int n)
 
 int _uint_len(uint32_t num)
 {
-	int n = 0;
+    int n = 0;
 
-	if(num == 0)
-	{
-		return 1;
-	}
+    if(num == 0)
+    {
+        return 1;
+    }
 
-	while(num != 0)
-	{
-		n ++;
-		num /= 10;
-	}
+    while(num != 0)
+    {
+        n ++;
+        num /= 10;
+    }
 
-	return n;
+    return n;
 }
 
 void *
@@ -274,10 +274,10 @@ _hi_alloc(size_t size, const char *name, int line)
 
     p = malloc(size);
 
-	if(name == NULL && line == 1)
-	{
+    if(name == NULL && line == 1)
+    {
 
-	}
+    }
 
     return p;
 }
@@ -310,11 +310,11 @@ _hi_realloc(void *ptr, size_t size, const char *name, int line)
 
     p = realloc(ptr, size);
 
-	if(name == NULL && line == 1)
-	{
+    if(name == NULL && line == 1)
+    {
 
-	}
-	
+    }
+    
     return p;
 }
 
@@ -323,21 +323,21 @@ _hi_free(void *ptr, const char *name, int line)
 {
     ASSERT(ptr != NULL);
 
-	if(name == NULL && line == 1)
-	{
+    if(name == NULL && line == 1)
+    {
 
-	}
+    }
 
-	free(ptr);
+    free(ptr);
 }
 
 void
 hi_stacktrace(int skip_count)
 {
-	if(skip_count > 0)
-	{
+    if(skip_count > 0)
+    {
 
-	}
+    }
 
 #ifdef HI_HAVE_BACKTRACE
     void *stack[64];
@@ -363,10 +363,10 @@ hi_stacktrace(int skip_count)
 void
 hi_stacktrace_fd(int fd)
 {
-	if(fd > 0)
-	{
-		
-	}
+    if(fd > 0)
+    {
+        
+    }
 #ifdef HI_HAVE_BACKTRACE
     void *stack[64];
     int size;
@@ -379,14 +379,14 @@ hi_stacktrace_fd(int fd)
 void
 hi_assert(const char *cond, const char *file, int line, int panic)
 {
-	
-	printf("File: %s Line: %d: %s\n", file, line, cond);
-	
+    
+    printf("File: %s Line: %d: %s\n", file, line, cond);
+    
     if (panic) {
         hi_stacktrace(1);
         abort();
     }
-	abort();
+    abort();
 }
 
 int
@@ -437,7 +437,7 @@ ssize_t
 _hi_sendn(int sd, const void *vptr, size_t n)
 {
     size_t nleft;
-    ssize_t	nsend;
+    ssize_t nsend;
     const char *ptr;
 
     ptr = vptr;
@@ -467,13 +467,13 @@ _hi_sendn(int sd, const void *vptr, size_t n)
 ssize_t
 _hi_recvn(int sd, void *vptr, size_t n)
 {
-	size_t nleft;
-	ssize_t	nrecv;
-	char *ptr;
+    size_t nleft;
+    ssize_t nrecv;
+    char *ptr;
 
-	ptr = vptr;
-	nleft = n;
-	while (nleft > 0) {
+    ptr = vptr;
+    nleft = n;
+    while (nleft > 0) {
         nrecv = recv(sd, ptr, nleft, 0);
         if (nrecv < 0) {
             if (errno == EINTR) {
@@ -523,32 +523,32 @@ hi_msec_now(void)
 
 void print_string_with_length(char *s, size_t len)
 {
-	char *token;
-	for(token = s; token <= s + len; token ++)
-	{
-		printf("%c", *token);
-	}
-	printf("\n");
+    char *token;
+    for(token = s; token <= s + len; token ++)
+    {
+        printf("%c", *token);
+    }
+    printf("\n");
 }
 
 void print_string_with_length_fix_CRLF(char *s, size_t len)
 {
-	char *token;
-	for(token = s; token < s + len; token ++)
-	{
-		if(*token == CR)
-		{
-			printf("\\r");
-		}
-		else if(*token == LF)
-		{
-			printf("\\n");
-		}
-		else
-		{
-			printf("%c", *token);
-		}
-	}
-	printf("\n");
+    char *token;
+    for(token = s; token < s + len; token ++)
+    {
+        if(*token == CR)
+        {
+            printf("\\r");
+        }
+        else if(*token == LF)
+        {
+            printf("\\n");
+        }
+        else
+        {
+            printf("%c", *token);
+        }
+    }
+    printf("\n");
 }
 

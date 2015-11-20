@@ -40,10 +40,10 @@ typedef int rstatus_t; /* return type */
  * type (uintmax_t) in ascii, including the null terminator '\0'
  *
  * From stdint.h, we have:
- * # define UINT8_MAX	(255)
- * # define UINT16_MAX	(65535)
- * # define UINT32_MAX	(4294967295U)
- * # define UINT64_MAX	(__UINT64_C(18446744073709551615))
+ * # define UINT8_MAX   (255)
+ * # define UINT16_MAX  (65535)
+ * # define UINT32_MAX  (4294967295U)
+ * # define UINT64_MAX  (__UINT64_C(18446744073709551615))
  */
 #define HI_UINT8_MAXLEN     (3 + 1)
 #define HI_UINT16_MAXLEN    (5 + 1)
@@ -128,10 +128,10 @@ typedef int rstatus_t; /* return type */
 #define hi_atoi(_line, _n)          \
     _hi_atoi((uint8_t *)_line, (size_t)_n)
 #define hi_itoa(_line, _n)          \
-		_hi_itoa((uint8_t *)_line, (int)_n)
+        _hi_itoa((uint8_t *)_line, (int)_n)
 
-#define uint_len(_n)		\
-	_uint_len((uint32_t)_n)
+#define uint_len(_n)        \
+    _uint_len((uint32_t)_n)
 
 
 int hi_set_blocking(int sd);

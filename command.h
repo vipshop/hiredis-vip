@@ -137,36 +137,36 @@ typedef enum cmd_type {
 struct keypos {
     char             *start;        /* key start pos */
     char             *end;          /* key end pos */
-	uint32_t		 remain_len;	/* remain length after keypos->end for more key-value pairs in command, like mset */
+    uint32_t         remain_len;    /* remain length after keypos->end for more key-value pairs in command, like mset */
 };
 
 struct cmd {
 
     uint64_t             id;              /* command id */
-	
+    
     cmd_parse_result_t   result;          /* command parsing result */
 
-    cmd_type_t       	 type;            /* command type */
+    cmd_type_t           type;            /* command type */
 
-	char 				 *cmd;
-	uint32_t             clen;            /* command length */
-	
+    char                 *cmd;
+    uint32_t             clen;            /* command length */
+    
     struct hiarray         *keys;           /* array of keypos, for req */
 
-    char              	 *narg_start;     /* narg start (redis) */
-    char              	 *narg_end;       /* narg end (redis) */
+    char                 *narg_start;     /* narg start (redis) */
+    char                 *narg_end;       /* narg end (redis) */
     uint32_t             narg;            /* # arguments (redis) */
 
-	unsigned             quit:1;          /* quit request? */
-	unsigned             noforward:1;     /* not need forward (example: ping) */
+    unsigned             quit:1;          /* quit request? */
+    unsigned             noforward:1;     /* not need forward (example: ping) */
 
-	int					 slot_num;		  /* this command should send to witch slot? 
-										     * -1:the keys in this command cross different slots*/
-	struct cmd			 **frag_seq;	  /* sequence of fragment command, map from keys to fragments*/
+    int                  slot_num;        /* this command should send to witch slot? 
+                                             * -1:the keys in this command cross different slots*/
+    struct cmd           **frag_seq;      /* sequence of fragment command, map from keys to fragments*/
 
-	redisReply 			 *reply;
+    redisReply           *reply;
 
-	list 				 *sub_commands;	  /* just for pipeline and multi-key commands */
+    list                 *sub_commands;   /* just for pipeline and multi-key commands */
 
 };
 

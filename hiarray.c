@@ -35,7 +35,7 @@ hiarray_destroy(struct hiarray *a)
     hi_free(a);
 }
 
-rstatus_t
+int
 hiarray_init(struct hiarray *a, uint32_t n, size_t size)
 {
     ASSERT(n != 0 && size != 0);
@@ -166,7 +166,7 @@ hiarray_sort(struct hiarray *a, hiarray_compare_t compare)
  * Calls the func once for each element in the array as long as func returns
  * success. On failure short-circuits and returns the error status.
  */
-rstatus_t
+int
 hiarray_each(struct hiarray *a, hiarray_each_t func, void *data)
 {
     uint32_t i, nelem;

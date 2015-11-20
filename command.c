@@ -316,10 +316,10 @@ void
 redis_parse_cmd(struct cmd *r)
 {
     char *p, *m, *token = NULL;
-	char *cmd_end;
+    char *cmd_end;
     char ch;
-	uint32_t rlen = 0;	/* running length in parsing fsa */
-	uint32_t rnarg = 0;	/* running # arg used by parsing fsa */
+    uint32_t rlen = 0;  /* running length in parsing fsa */
+    uint32_t rnarg = 0; /* running # arg used by parsing fsa */
     enum {
         SW_START,
         SW_NARG,
@@ -352,7 +352,7 @@ redis_parse_cmd(struct cmd *r)
     } state;
 
     state = SW_START;
-	cmd_end = r->cmd + r->clen;
+    cmd_end = r->cmd + r->clen;
 
     ASSERT(state >= SW_START && state < SW_SENTINEL);
     ASSERT(r->cmd != NULL && r->clen > 0);
@@ -445,7 +445,7 @@ redis_parse_cmd(struct cmd *r)
                 //m = cmd_end - 1;
                 //p = m;
                 //break;
-				goto error;
+                goto error;
             }
 
             if (*m != CR) {
@@ -1062,7 +1062,7 @@ redis_parse_cmd(struct cmd *r)
             } else if (isdigit(ch)) {
                 rlen = rlen * 10 + (uint32_t)(ch - '0');
             } else if (ch == CR) {
-               	
+                
                 if (rnarg == 0) {
                     goto error;
                 }
@@ -1116,6 +1116,7 @@ redis_parse_cmd(struct cmd *r)
                 }
                 kpos->start = m;
                 kpos->end = p;
+                //kpos->v_len = 0;
 
                 state = SW_KEY_LF;
             }
@@ -1195,6 +1196,26 @@ redis_parse_cmd(struct cmd *r)
                 }
                 rnarg--;
                 token = NULL;
+
+                /*
+                //for mset value length
+                if(redis_argkvx(r))
+                {
+                    struct keypos *kpos;
+                    uint32_t array_len = array_n(r->keys);
+                    if(array_len == 0)
+                    {
+                        goto error;
+                    }
+                    
+                    kpos = array_n(r->keys, array_len-1);
+                    if (kpos == NULL || kpos->v_len != 0) {
+                        goto error;
+                    }
+
+                    kpos->v_len = rlen;
+                }
+                */
                 state = SW_ARG1_LEN_LF;
             } else {
                 goto error;
@@ -1573,20 +1594,20 @@ redis_parse_cmd(struct cmd *r)
 
 done:
 
-	ASSERT(r->type > CMD_UNKNOWN && r->type < CMD_SENTINEL);
-	
+    ASSERT(r->type > CMD_UNKNOWN && r->type < CMD_SENTINEL);
+    
     r->result = CMD_PARSE_OK;
 
     return;
 
 enomem:
-	
+    
     r->result = CMD_PARSE_ERROR;
 
     return;
 
 error:
-	
+    
     r->result = CMD_PARSE_ERROR;
     errno = EINVAL;
 
@@ -1594,74 +1615,74 @@ error:
 
 struct cmd *command_get()
 {
-	struct cmd *command;
-	command = hi_alloc(sizeof(struct cmd));
-	if(command == NULL)
-	{
-		return NULL;
-	}
-		
-	command->id = ++cmd_id;
-	command->result = CMD_PARSE_OK;
-	command->type = CMD_UNKNOWN;
-	command->cmd = NULL;
-	command->clen = 0;
-	command->keys = NULL;
-	command->narg_start = NULL;
-	command->narg_end = NULL;
-	command->narg = 0;
-	command->quit = 0;
-	command->noforward = 0;
-	command->slot_num = -1;
-	command->frag_seq = NULL;
-	command->reply = NULL;
-	command->sub_commands = NULL;
+    struct cmd *command;
+    command = hi_alloc(sizeof(struct cmd));
+    if(command == NULL)
+    {
+        return NULL;
+    }
+        
+    command->id = ++cmd_id;
+    command->result = CMD_PARSE_OK;
+    command->type = CMD_UNKNOWN;
+    command->cmd = NULL;
+    command->clen = 0;
+    command->keys = NULL;
+    command->narg_start = NULL;
+    command->narg_end = NULL;
+    command->narg = 0;
+    command->quit = 0;
+    command->noforward = 0;
+    command->slot_num = -1;
+    command->frag_seq = NULL;
+    command->reply = NULL;
+    command->sub_commands = NULL;
 
-	command->keys = hiarray_create(1, sizeof(struct keypos));
+    command->keys = hiarray_create(1, sizeof(struct keypos));
     if (command->keys == NULL) 
-	{
-		hi_free(command);
+    {
+        hi_free(command);
         return NULL;
     }
 
-	return command;
+    return command;
 }
 
 void command_destroy(struct cmd *command)
 {
-	if(command == NULL)
-	{
-		return;
-	}
+    if(command == NULL)
+    {
+        return;
+    }
 
-	if(command->cmd != NULL)
-	{
-		free(command->cmd);
-	}
+    if(command->cmd != NULL)
+    {
+        free(command->cmd);
+    }
 
-	if(command->keys != NULL)
-	{
-		command->keys->nelem = 0;
-		hiarray_destroy(command->keys);
-	}
+    if(command->keys != NULL)
+    {
+        command->keys->nelem = 0;
+        hiarray_destroy(command->keys);
+    }
 
-	if(command->frag_seq != NULL)
-	{
-		hi_free(command->frag_seq);
-		command->frag_seq = NULL;
-	}
+    if(command->frag_seq != NULL)
+    {
+        hi_free(command->frag_seq);
+        command->frag_seq = NULL;
+    }
 
-	if(command->reply != NULL)
-	{
-		freeReplyObject(command->reply);
-	}
+    if(command->reply != NULL)
+    {
+        freeReplyObject(command->reply);
+    }
 
-	if(command->sub_commands != NULL)
-	{
-		listRelease(command->sub_commands);
-	}
-	
-	hi_free(command);
+    if(command->sub_commands != NULL)
+    {
+        listRelease(command->sub_commands);
+    }
+    
+    hi_free(command);
 }
 
 
