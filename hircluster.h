@@ -12,38 +12,39 @@
 
 #define REDIS_CLUSTER_SLOTS 16384
 
-#define REDIS_ROLE_NULL 	0
-#define REDIS_ROLE_MASTER 	1
-#define REDIS_ROLE_SLAVE 	2
+#define REDIS_ROLE_NULL     0
+#define REDIS_ROLE_MASTER   1
+#define REDIS_ROLE_SLAVE    2
 
 
-#define HIRCLUSTER_FLAG_NULL		0x0
+#define HIRCLUSTER_FLAG_NULL        0x0
 /* The flag to decide whether add slave node 
   * in redisClusterContext->nodes. This is set in the
   * least significant bit of the flags field in redisClusterContext. */
-#define HIRCLUSTER_FLAG_ADD_SLAVE	0x10000000
+#define HIRCLUSTER_FLAG_ADD_SLAVE   0x10000000
 
 struct dict;
 
 typedef struct cluster_node
 {
-	sds name;
-	sds addr;
-	sds host;
-	int port;
-	int count;
-	uint8_t role;
-	redisContext *con;
-	redisAsyncContext *acon;
-	list *slots;
-	list *slaves;
+    sds name;
+    sds addr;
+    sds host;
+    int port;
+    int count;
+    uint8_t role;
+    redisContext *con;
+    redisAsyncContext *acon;
+    list *slots;
+    list *slaves;
+    int failure_count;
 }cluster_node;
 
 typedef struct cluster_slot
 {
-	uint32_t start;
-	uint32_t end;
-	cluster_node *node;
+    uint32_t start;
+    uint32_t end;
+    cluster_node *node;
 }cluster_slot;
 
 #ifdef __cplusplus
@@ -54,32 +55,33 @@ extern "C" {
 typedef struct redisClusterContext {
     int err; /* Error flags, 0 when there is no error */
     char errstr[128]; /* String representation of error when applicable */
-	sds ip;
-	int port;
+    sds ip;
+    int port;
 
-	int flags;
+    int flags;
 
     enum redisConnectionType connection_type;
     struct timeval *timeout;
-	
-	struct hiarray *slots;
+    
+    struct hiarray *slots;
 
-	struct dict *nodes;
-	cluster_node *table[REDIS_CLUSTER_SLOTS];
+    struct dict *nodes;
+    cluster_node *table[REDIS_CLUSTER_SLOTS];
 
-	uint64_t route_version;
+    uint64_t route_version;
 
-	int max_redirect_count;
-	int retry_count;
+    int max_redirect_count;
+    int retry_count;
 
-	list *requests;
+    list *requests;
 
-	int need_update_route;
+    int need_update_route;
+    int64_t update_route_time;
 } redisClusterContext;
 
 redisClusterContext *redisClusterConnect(const char *addrs, int flags);
 redisClusterContext *redisClusterConnectWithTimeout(const char *addrs, 
-	const struct timeval tv, int flags);
+    const struct timeval tv, int flags);
 redisClusterContext *redisClusterConnectNonBlock(const char *addrs, int flags);
 
 void redisClusterFree(redisClusterContext *cc);
@@ -118,8 +120,8 @@ typedef struct redisClusterAsyncContext {
     /* Not used by hiredis */
     void *data;
 
-	void *adapter;
-	adapterAttachFn *attach_fn;
+    void *adapter;
+    adapterAttachFn *attach_fn;
 
     /* Called when either the connection is terminated due to an error or per
      * user request. The status is set accordingly (REDIS_OK, REDIS_ERR). */
