@@ -4,7 +4,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <errno.h>
-#include<ctype.h>
+#include <ctype.h>
 
 #include "hircluster.h"
 #include "hiutil.h"
@@ -2726,9 +2726,7 @@ void redisClusterSetMaxRedirect(redisClusterContext *cc, int max_redirect_count)
     cc->max_redirect_count = max_redirect_count;
 }
 
-void *redisClusterCommand(redisClusterContext *cc, const char *format, ...) {
-    
-    va_list ap;
+void *redisClustervCommand(redisClusterContext *cc, const char *format, va_list ap) {
     redisReply *reply = NULL;
     char *cmd = NULL;
     int slot_num;
@@ -2737,8 +2735,6 @@ void *redisClusterCommand(redisClusterContext *cc, const char *format, ...) {
     list *commands = NULL;
     listNode *list_node;
     listIter *list_iter = NULL;
-    
-    va_start(ap,format);
 
     if(cc == NULL)
     {
@@ -2752,8 +2748,6 @@ void *redisClusterCommand(redisClusterContext *cc, const char *format, ...) {
     }
 
     len = redisvFormatCommand(&cmd,format,ap);
-
-    va_end(ap);
 
     if (len == -1) {
         __redisClusterSetError(cc,REDIS_ERR_OOM,"Out of memory");
@@ -2867,10 +2861,21 @@ error:
     return NULL;
 }
 
-int redisClusterAppendCommand(redisClusterContext *cc, 
-    const char *format, ...) {
-
+void *redisClusterCommand(redisClusterContext *cc, const char *format, ...) {
+    
     va_list ap;
+    redisReply *reply = NULL;
+    
+    va_start(ap,format);
+    reply = redisClustervCommand(cc, format, ap);
+    va_end(ap);
+
+    return reply;
+}
+
+int redisClustervAppendCommand(redisClusterContext *cc, 
+    const char *format, va_list ap){
+
     int len;
     int slot_num;
     struct cmd *command = NULL, *sub_command;
@@ -2879,11 +2884,6 @@ int redisClusterAppendCommand(redisClusterContext *cc,
     char *cmd;
     listNode *list_node;
     listIter *list_iter = NULL;
-
-    if(cc == NULL || format == NULL)
-    {
-        return REDIS_ERR;
-    }
 
     if(cc->requests == NULL)
     {
@@ -2897,8 +2897,6 @@ int redisClusterAppendCommand(redisClusterContext *cc,
         cc->requests->free = listCommandFree;
     }
     
-    va_start(ap,format);
-
     len = redisvFormatCommand(&cmd,format,ap);  
     if (len == -1) {
         __redisClusterSetError(cc,REDIS_ERR_OOM,"Out of memory");
@@ -2971,8 +2969,6 @@ int redisClusterAppendCommand(redisClusterContext *cc,
 
 done:
 
-    va_end(ap);
-
     if(command->cmd != NULL)
     {
         free(command->cmd);
@@ -3006,8 +3002,6 @@ done:
 
 error:
 
-    va_end(ap);
-
     if(command != NULL)
     {
         command_destroy(command);
@@ -3032,6 +3026,25 @@ error:
       But now we do not handle it. */
     
     return REDIS_ERR;
+
+}
+
+int redisClusterAppendCommand(redisClusterContext *cc, 
+    const char *format, ...) {
+
+    int ret;
+    va_list ap;
+
+    if(cc == NULL || format == NULL)
+    {
+        return REDIS_ERR;
+    }
+    
+    va_start(ap,format);
+    ret = redisClustervAppendCommand(cc, format, ap);
+    va_end(ap);
+
+    return ret;
 }
 
 int redisClusterAppendCommandArgv(redisClusterContext *cc, 
@@ -3722,11 +3735,9 @@ error:
     }
 }
 
-
-int redisClusterAsyncCommand(redisClusterAsyncContext *acc, 
-    redisClusterCallbackFn *fn, void *privdata, const char *format, ...) {
-
-    va_list ap;
+int redisClustervAsyncCommand(redisClusterAsyncContext *acc, 
+    redisClusterCallbackFn *fn, void *privdata, const char *format, va_list ap) {
+    
     redisClusterContext *cc;
     int status = REDIS_OK;
     char *cmd = NULL;
@@ -3742,8 +3753,6 @@ int redisClusterAsyncCommand(redisClusterAsyncContext *acc,
     {
         return REDIS_ERR;
     }
-
-    va_start(ap,format);
 
     cc = acc->cc;
 
@@ -3856,8 +3865,6 @@ int redisClusterAsyncCommand(redisClusterAsyncContext *acc,
         goto error;
     }
 
-    va_end(ap);
-
     if(commands != NULL)
     {
         listRelease(commands);
@@ -3866,8 +3873,6 @@ int redisClusterAsyncCommand(redisClusterAsyncContext *acc,
     return REDIS_OK;
 
 error: 
-
-    va_end(ap);
     
     if(command != NULL)
     {
@@ -3884,6 +3889,18 @@ error:
     }
 
     return REDIS_ERR;
+}
+
+int redisClusterAsyncCommand(redisClusterAsyncContext *acc, 
+    redisClusterCallbackFn *fn, void *privdata, const char *format, ...) {
+    int ret;
+    va_list ap;
+
+    va_start(ap,format);
+    ret = redisClustervAsyncCommand(acc, fn, privdata, format, ap);
+    va_end(ap);
+
+    return ret;
 }
 
 void redisClusterAsyncDisconnect(redisClusterAsyncContext *acc) {

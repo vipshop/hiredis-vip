@@ -8,7 +8,7 @@
 
 #define HIREDIS_VIP_MAJOR 0
 #define HIREDIS_VIP_MINOR 2
-#define HIREDIS_VIP_PATCH 1
+#define HIREDIS_VIP_PATCH 2
 
 #define REDIS_CLUSTER_SLOTS 16384
 
@@ -88,10 +88,12 @@ void redisClusterFree(redisClusterContext *cc);
 
 void redisClusterSetMaxRedirect(redisClusterContext *cc, int max_redirect_count);
 
+void *redisClustervCommand(redisClusterContext *cc, const char *format, va_list ap);
 void *redisClusterCommand(redisClusterContext *cc, const char *format, ...);
 
 redisContext *ctx_get_by_node(struct cluster_node *node, const struct timeval *timeout, int flags);
 
+int redisClustervAppendCommand(redisClusterContext *cc, const char *format, va_list ap);
 int redisClusterAppendCommand(redisClusterContext *cc, const char *format, ...);
 int redisClusterAppendCommandArgv(redisClusterContext *cc, int argc, const char **argv);
 int redisClusterGetReply(redisClusterContext *cc, void **reply);
@@ -135,6 +137,7 @@ typedef struct redisClusterAsyncContext {
 redisClusterAsyncContext *redisClusterAsyncConnect(const char *addrs, int flags);
 int redisClusterAsyncSetConnectCallback(redisClusterAsyncContext *acc, redisConnectCallback *fn);
 int redisClusterAsyncSetDisconnectCallback(redisClusterAsyncContext *acc, redisDisconnectCallback *fn);
+int redisClustervAsyncCommand(redisClusterAsyncContext *acc, redisClusterCallbackFn *fn, void *privdata, const char *format, va_list ap);
 int redisClusterAsyncCommand(redisClusterAsyncContext *acc, redisClusterCallbackFn *fn, void *privdata, const char *format, ...);
 void redisClusterAsyncDisconnect(redisClusterAsyncContext *acc);
 void redisClusterAsyncFree(redisClusterAsyncContext *acc);
