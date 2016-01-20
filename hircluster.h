@@ -38,6 +38,7 @@ typedef struct cluster_node
     list *slots;
     list *slaves;
     int failure_count;
+    void *data;     /* Not used by hiredis */
 }cluster_node;
 
 typedef struct cluster_slot
@@ -141,6 +142,8 @@ int redisClustervAsyncCommand(redisClusterAsyncContext *acc, redisClusterCallbac
 int redisClusterAsyncCommand(redisClusterAsyncContext *acc, redisClusterCallbackFn *fn, void *privdata, const char *format, ...);
 void redisClusterAsyncDisconnect(redisClusterAsyncContext *acc);
 void redisClusterAsyncFree(redisClusterAsyncContext *acc);
+
+redisAsyncContext *actx_get_by_node(redisClusterAsyncContext *acc, cluster_node *node);
 
 #ifdef __cplusplus
 }

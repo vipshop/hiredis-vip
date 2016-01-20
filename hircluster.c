@@ -256,6 +256,7 @@ static int cluster_node_init(cluster_node *node)
     node->acon = NULL;
     node->slots = NULL;
     node->failure_count = 0;
+    node->data = NULL;
     
     return REDIS_OK;
 }
@@ -3338,8 +3339,7 @@ static void cluster_async_data_free(cluster_async_data *cad)
     cad = NULL;
 }
 
-
-static redisAsyncContext * actx_get_by_node(redisClusterAsyncContext *acc, 
+redisAsyncContext * actx_get_by_node(redisClusterAsyncContext *acc, 
     cluster_node *node)
 {
     redisAsyncContext *ac;
