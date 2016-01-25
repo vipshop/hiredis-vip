@@ -315,6 +315,7 @@ redis_argeval(struct cmd *r)
 void
 redis_parse_cmd(struct cmd *r)
 {
+    int len;
     char *p, *m, *token = NULL;
     char *cmd_end;
     char ch;
@@ -1602,7 +1603,7 @@ done:
 
 enomem:
     
-    r->result = CMD_PARSE_ERROR;
+    r->result = CMD_PARSE_ENOMEM;
 
     return;
 
@@ -1610,7 +1611,13 @@ error:
     
     r->result = CMD_PARSE_ERROR;
     errno = EINVAL;
+    if(r->errstr == NULL){
+        r->errstr = hi_alloc(100*sizeof(*r->errstr));
+    }
 
+    len = _scnprintf(r->errstr, 100, "Parse command error. Cmd type: %d, state: %d, break position: %d.", 
+        r->type, state, (int)(p - r->cmd));
+    r->errstr[len] = '\0';
 }
 
 struct cmd *command_get()
@@ -1624,6 +1631,7 @@ struct cmd *command_get()
         
     command->id = ++cmd_id;
     command->result = CMD_PARSE_OK;
+    command->errstr = NULL;
     command->type = CMD_UNKNOWN;
     command->cmd = NULL;
     command->clen = 0;
@@ -1658,6 +1666,10 @@ void command_destroy(struct cmd *command)
     if(command->cmd != NULL)
     {
         free(command->cmd);
+    }
+
+    if(command->errstr != NULL){
+        hi_free(command->errstr);
     }
 
     if(command->keys != NULL)

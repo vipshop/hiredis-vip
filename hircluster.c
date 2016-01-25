@@ -2687,9 +2687,14 @@ static int command_format_by_slot(redisClusterContext *cc,
 
     
     redis_parse_cmd(command);
-    if(command->result != CMD_PARSE_OK)
+    if(command->result == CMD_PARSE_ENOMEM)
     {
-        __redisClusterSetError(cc, REDIS_ERR_PROTOCOL, "parse command error");
+        __redisClusterSetError(cc, REDIS_ERR_PROTOCOL, "Parse command error: out of memory");
+        goto done;
+    }
+    else if(command->result != CMD_PARSE_OK)
+    {
+        __redisClusterSetError(cc, REDIS_ERR_PROTOCOL, command->errstr);
         goto done;
     }
 
@@ -2697,7 +2702,7 @@ static int command_format_by_slot(redisClusterContext *cc,
 
     if(key_count <= 0)
     {
-        __redisClusterSetError(cc, REDIS_ERR_OTHER, "no keys in command(must have keys for redis cluster mode)");
+        __redisClusterSetError(cc, REDIS_ERR_OTHER, "No keys in command(must have keys for redis cluster mode)");
         goto done;
     }
     else if(key_count == 1)

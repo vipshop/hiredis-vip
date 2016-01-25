@@ -8,6 +8,7 @@
 
 typedef enum cmd_parse_result {
     CMD_PARSE_OK,                         /* parsing ok */
+    CMD_PARSE_ENOMEM,                     /* out of memory */
     CMD_PARSE_ERROR,                      /* parsing error */
     CMD_PARSE_REPAIR,                     /* more to parse -> repair parsed & unparsed data */
     CMD_PARSE_AGAIN,                      /* incomplete -> parse again */
@@ -145,13 +146,14 @@ struct cmd {
     uint64_t             id;              /* command id */
     
     cmd_parse_result_t   result;          /* command parsing result */
+    char                 *errstr;         /* error info when the command parse failed */
 
     cmd_type_t           type;            /* command type */
 
     char                 *cmd;
     uint32_t             clen;            /* command length */
     
-    struct hiarray         *keys;           /* array of keypos, for req */
+    struct hiarray       *keys;           /* array of keypos, for req */
 
     char                 *narg_start;     /* narg start (redis) */
     char                 *narg_end;       /* narg end (redis) */
@@ -161,13 +163,12 @@ struct cmd {
     unsigned             noforward:1;     /* not need forward (example: ping) */
 
     int                  slot_num;        /* this command should send to witch slot? 
-                                             * -1:the keys in this command cross different slots*/
+                                                                          * -1:the keys in this command cross different slots*/
     struct cmd           **frag_seq;      /* sequence of fragment command, map from keys to fragments*/
 
     redisReply           *reply;
 
     list                 *sub_commands;   /* just for pipeline and multi-key commands */
-
 };
 
 void redis_parse_cmd(struct cmd *r);
