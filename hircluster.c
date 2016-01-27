@@ -2182,7 +2182,12 @@ retry:
         }
 
         c = ctx_get_by_node(node, cc->timeout, cc->flags);
-        if(c == NULL || c->err)
+        if(c == NULL)
+        {
+            __redisClusterSetError(cc, REDIS_ERR_OTHER, "ctx get by node error");
+            return NULL;
+        }
+        else if(c->err)
         {
             __redisClusterSetError(cc, c->err, c->errstr);
             return NULL;
@@ -2212,6 +2217,7 @@ ask_retry:
         {
             __redisClusterSetError(cc, REDIS_ERR_CLUSTER_TOO_MANY_REDIRECT, 
                 "too many cluster redirect");
+            freeReplyObject(reply);
             return NULL;
         }
         
@@ -2235,13 +2241,31 @@ ask_retry:
             node = node_get_by_ask_error_reply(cc, reply);
             if(node == NULL)
             {
+                freeReplyObject(reply);
                 return NULL;
             }
 
             freeReplyObject(reply);
             reply = NULL;
 
+            c = ctx_get_by_node(node, cc->timeout, cc->flags);
+            if(c == NULL)
+            {
+                __redisClusterSetError(cc, REDIS_ERR_OTHER, "ctx get by node error");
+                return NULL;
+            }
+            else if(c->err)
+            {
+                __redisClusterSetError(cc, c->err, c->errstr);
+                return NULL;
+            }
+            
             reply = redisCommand(c, REDIS_COMMAND_ASKING);
+            if(reply == NULL)
+            {
+                __redisClusterSetError(cc, c->err, c->errstr);
+                return NULL;
+            }
 
             freeReplyObject(reply);
             reply = NULL;
