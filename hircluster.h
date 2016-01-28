@@ -17,11 +17,18 @@
 #define REDIS_ROLE_SLAVE    2
 
 
-#define HIRCLUSTER_FLAG_NULL        0x0
-/* The flag to decide whether add slave node 
-  * in redisClusterContext->nodes. This is set in the
-  * least significant bit of the flags field in redisClusterContext. */
-#define HIRCLUSTER_FLAG_ADD_SLAVE   0x10000000
+#define HIRCLUSTER_FLAG_NULL                0x0
+/* The flag to decide whether add slave node in 
+  * redisClusterContext->nodes. This is set in the
+  * least significant bit of the flags field in 
+  * redisClusterContext. (1000000000000) */
+#define HIRCLUSTER_FLAG_ADD_SLAVE           0x1000
+/* The flag to decide whether add open slot  
+  * for master node. (10000000000000) */
+#define HIRCLUSTER_FLAG_ADD_OPENSLOT        0x2000
+/* The flag to decide whether add open slot  
+  * for master node. (100000000000000) */
+#define HIRCLUSTER_FLAG_ROUTE_USE_SLOTS     0x4000
 
 struct dict;
 
@@ -31,7 +38,6 @@ typedef struct cluster_node
     sds addr;
     sds host;
     int port;
-    int count;
     uint8_t role;
     redisContext *con;
     redisAsyncContext *acon;
@@ -39,14 +45,24 @@ typedef struct cluster_node
     list *slaves;
     int failure_count;
     void *data;     /* Not used by hiredis */
+    struct hiarray *migrating;  /* copen_slot[] */
+    struct hiarray *importing;  /* copen_slot[] */
 }cluster_node;
 
 typedef struct cluster_slot
 {
     uint32_t start;
     uint32_t end;
-    cluster_node *node;
+    cluster_node *node; /* master that this slot region belong to */
 }cluster_slot;
+
+typedef struct copen_slot
+{
+    uint32_t slot_num;  /* slot number */
+    int migrate;        /* migrating or importing? */
+    sds remote_name;    /* name for the node that this slot migrating to/importing from */
+    cluster_node *node; /* master that this slot belong to */
+}copen_slot;
 
 #ifdef __cplusplus
 extern "C" {
@@ -101,6 +117,8 @@ int redisClusterGetReply(redisClusterContext *cc, void **reply);
 void redisCLusterReset(redisClusterContext *cc);
 
 int test_cluster_update_route(redisClusterContext *cc);
+struct dict *parse_cluster_nodes(redisClusterContext *cc, char *str, int str_len, int flags);
+struct dict *parse_cluster_slots(redisClusterContext *cc, redisReply *reply, int flags);
 
 
 /*############redis cluster async############*/
