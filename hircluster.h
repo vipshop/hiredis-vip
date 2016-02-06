@@ -39,6 +39,7 @@ typedef struct cluster_node
     sds host;
     int port;
     uint8_t role;
+    uint8_t myself;   /* myself ? */
     redisContext *con;
     redisAsyncContext *acon;
     list *slots;
@@ -116,6 +117,7 @@ int redisClusterAppendCommandArgv(redisClusterContext *cc, int argc, const char 
 int redisClusterGetReply(redisClusterContext *cc, void **reply);
 void redisCLusterReset(redisClusterContext *cc);
 
+int cluster_update_route(redisClusterContext *cc);
 int test_cluster_update_route(redisClusterContext *cc);
 struct dict *parse_cluster_nodes(redisClusterContext *cc, char *str, int str_len, int flags);
 struct dict *parse_cluster_slots(redisClusterContext *cc, redisReply *reply, int flags);

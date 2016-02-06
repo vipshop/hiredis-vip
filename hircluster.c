@@ -265,6 +265,7 @@ static int cluster_node_init(cluster_node *node)
     node->host = NULL;
     node->port = 0;
     node->role = REDIS_ROLE_NULL;
+    node->myself = 0;
     node->slaves = NULL;
     node->con = NULL;
     node->acon = NULL;
@@ -291,6 +292,7 @@ static void cluster_node_deinit(cluster_node *node)
     sdsfree(node->host);
     node->port = 0;
     node->role = REDIS_ROLE_NULL;
+    node->myself = 0;
 
     if(node->con != NULL)
     {
@@ -1057,6 +1059,8 @@ parse_cluster_nodes(redisClusterContext *cc,
                         goto error;
                     }
                 }
+
+                if(myself) master->myself = 1;
                 
                 for(k = 8; k < count_part; k ++){
                     slot_start_end = sdssplitlen(part[k], 
@@ -1193,6 +1197,8 @@ parse_cluster_nodes(redisClusterContext *cc,
                     hi_free(slave);
                     goto error;
                 }
+
+                if(myself) slave->myself = 1;
             }
 
             if(myself == 1){
@@ -1857,7 +1863,7 @@ error:
     return REDIS_ERR;
 }
 
-static int
+int
 cluster_update_route(redisClusterContext *cc)
 {
     int ret;
@@ -1964,6 +1970,8 @@ static void print_cluster_node_list(redisClusterContext *cc)
             printf("%s\t%s\t%d\t%s\n",slave->name, slave->addr, 
                 slave->role, slave->slaves?"hava":"null");
         }
+
+        listReleaseIterator(it);
 
         printf("\n");
     }
