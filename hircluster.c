@@ -3391,11 +3391,9 @@ void redisClusterSetMaxRedirect(redisClusterContext *cc, int max_redirect_count)
     cc->max_redirect_count = max_redirect_count;
 }
 
-void *redisClustervCommand(redisClusterContext *cc, const char *format, va_list ap) {
+void *redisClusterFormattedCommand(redisClusterContext *cc, char *cmd, int len) {
     redisReply *reply = NULL;
-    char *cmd = NULL;
     int slot_num;
-    int len;
     struct cmd *command = NULL, *sub_command;
     list *commands = NULL;
     listNode *list_node;
@@ -3410,17 +3408,7 @@ void *redisClustervCommand(redisClusterContext *cc, const char *format, va_list 
     {
         cc->err = 0;
         memset(cc->errstr, '\0', strlen(cc->errstr));
-    }
-
-    len = redisvFormatCommand(&cmd,format,ap);
-
-    if (len == -1) {
-        __redisClusterSetError(cc,REDIS_ERR_OOM,"Out of memory");
-        return NULL;
-    } else if (len == -2) {
-        __redisClusterSetError(cc,REDIS_ERR_OTHER,"Invalid format string");
-        return NULL;
-    }   
+    }  
     
     command = command_get();
     if(command == NULL)
@@ -3484,6 +3472,7 @@ void *redisClustervCommand(redisClusterContext *cc, const char *format, va_list 
     
 done:
 
+    command->cmd = NULL;
     command_destroy(command);
 
     if(commands != NULL)
@@ -3504,11 +3493,8 @@ error:
 
     if(command != NULL)
     {
+        command->cmd = NULL;
         command_destroy(command);
-    }
-    else if(cmd != NULL)
-    {
-        free(cmd);
     }
 
     if(commands != NULL)
@@ -3526,8 +3512,34 @@ error:
     return NULL;
 }
 
+void *redisClustervCommand(redisClusterContext *cc, const char *format, va_list ap) {
+    redisReply *reply;
+    char *cmd;
+    int len;
+
+    if(cc == NULL)
+    {
+        return NULL;
+    }
+
+    len = redisvFormatCommand(&cmd,format,ap);
+
+    if (len == -1) {
+        __redisClusterSetError(cc,REDIS_ERR_OOM,"Out of memory");
+        return NULL;
+    } else if (len == -2) {
+        __redisClusterSetError(cc,REDIS_ERR_OTHER,"Invalid format string");
+        return NULL;
+    }   
+
+    reply = redisClusterFormattedCommand(cc, cmd, len);
+
+    free(cmd);
+
+    return reply;
+}
+
 void *redisClusterCommand(redisClusterContext *cc, const char *format, ...) {
-    
     va_list ap;
     redisReply *reply = NULL;
     
@@ -3538,15 +3550,29 @@ void *redisClusterCommand(redisClusterContext *cc, const char *format, ...) {
     return reply;
 }
 
-int redisClustervAppendCommand(redisClusterContext *cc, 
-    const char *format, va_list ap){
-
+void *redisClusterCommandArgv(redisClusterContext *cc, int argc, const char **argv, const size_t *argvlen) {
+    redisReply *reply = NULL;
+    char *cmd;
     int len;
+
+    len = redisFormatCommandArgv(&cmd,argc,argv,argvlen);
+    if (len == -1) {
+        __redisClusterSetError(cc,REDIS_ERR_OOM,"Out of memory");
+        return NULL;
+    }
+	
+    reply = redisClusterFormattedCommand(cc, cmd, len);
+
+    free(cmd);
+
+    return reply;
+}
+
+int redisClusterAppendFormattedCommand(redisClusterContext *cc, 
+    char *cmd, int len) {
     int slot_num;
     struct cmd *command = NULL, *sub_command;
     list *commands = NULL;
-
-    char *cmd;
     listNode *list_node;
     listIter *list_iter = NULL;
 
@@ -3560,15 +3586,6 @@ int redisClustervAppendCommand(redisClusterContext *cc,
         }
 
         cc->requests->free = listCommandFree;
-    }
-    
-    len = redisvFormatCommand(&cmd,format,ap);  
-    if (len == -1) {
-        __redisClusterSetError(cc,REDIS_ERR_OOM,"Out of memory");
-        goto error;
-    } else if (len == -2) {
-        __redisClusterSetError(cc,REDIS_ERR_OTHER,"Invalid format string");
-        goto error;
     }   
     
     command = command_get();
@@ -3636,7 +3653,6 @@ done:
 
     if(command->cmd != NULL)
     {
-        free(command->cmd);
         command->cmd = NULL;
     }
     else
@@ -3669,11 +3685,8 @@ error:
 
     if(command != NULL)
     {
+        command->cmd = NULL;
         command_destroy(command);
-    }
-    else if(cmd != NULL)
-    {
-        free(cmd);
     }
 
     if(commands != NULL)
@@ -3691,7 +3704,29 @@ error:
       But now we do not handle it. */
     
     return REDIS_ERR;
+}
 
+
+int redisClustervAppendCommand(redisClusterContext *cc, 
+    const char *format, va_list ap) {
+    int ret;
+    char *cmd;
+    int len;
+    
+    len = redisvFormatCommand(&cmd,format,ap);  
+    if (len == -1) {
+        __redisClusterSetError(cc,REDIS_ERR_OOM,"Out of memory");
+        return REDIS_ERR;
+    } else if (len == -2) {
+        __redisClusterSetError(cc,REDIS_ERR_OTHER,"Invalid format string");
+        return REDIS_ERR;
+    }   
+
+    ret = redisClusterAppendFormattedCommand(cc, cmd, len);
+
+    free(cmd);
+
+    return ret;
 }
 
 int redisClusterAppendCommand(redisClusterContext *cc, 
@@ -3713,18 +3748,22 @@ int redisClusterAppendCommand(redisClusterContext *cc,
 }
 
 int redisClusterAppendCommandArgv(redisClusterContext *cc, 
-    int argc, const char **argv) {
+    int argc, const char **argv, const size_t *argvlen) {
+    int ret;
+    char *cmd;
+    int len;
 
-    int j;
-
-    for (j=0; j < argc; j++) {
-        if(redisClusterAppendCommand(cc, argv[j]) != REDIS_OK)
-        {
-            return REDIS_ERR;
-        }
+    len = redisFormatCommandArgv(&cmd,argc,argv,argvlen);
+    if (len == -1) {
+        __redisClusterSetError(cc,REDIS_ERR_OOM,"Out of memory");
+        return REDIS_ERR;
     }
+    
+    ret = redisClusterAppendFormattedCommand(cc, cmd, len);
+    
+    free(cmd);
 
-    return REDIS_OK;
+    return ret;
 }
 
 static int redisCLusterSendAll(redisClusterContext *cc)
@@ -3847,8 +3886,6 @@ int redisClusterGetReply(redisClusterContext *cc, void **reply) {
         sub_command->reply = sub_reply;
     }
 
-    
-    
     *reply = command_post_fragment(cc, command, commands);
     if(*reply == NULL)
     {
@@ -4397,13 +4434,11 @@ error:
     }
 }
 
-int redisClustervAsyncCommand(redisClusterAsyncContext *acc, 
-    redisClusterCallbackFn *fn, void *privdata, const char *format, va_list ap) {
+int redisClusterAsyncFormattedCommand(redisClusterAsyncContext *acc, 
+    redisClusterCallbackFn *fn, void *privdata, char *cmd, int len) {
     
     redisClusterContext *cc;
     int status = REDIS_OK;
-    char *cmd = NULL;
-    int len;
     int slot_num;
     cluster_node *node;
     redisAsyncContext *ac;
@@ -4430,16 +4465,6 @@ int redisClustervAsyncCommand(redisClusterAsyncContext *acc,
         memset(acc->errstr, '\0', strlen(acc->errstr));
     }
 
-    len = redisvFormatCommand(&cmd,format,ap);
-
-    if (len == -1) {
-        __redisClusterAsyncSetError(acc,REDIS_ERR_OOM,"Out of memory");
-        goto error;
-    } else if (len == -2) {
-        __redisClusterAsyncSetError(acc,REDIS_ERR_OTHER,"Invalid format string");
-        goto error;
-    }
-
     command = command_get();
     if(command == NULL)
     {
@@ -4447,7 +4472,13 @@ int redisClustervAsyncCommand(redisClusterAsyncContext *acc,
         goto error;
     }
     
-    command->cmd = cmd;
+    command->cmd = malloc(len*sizeof(*command->cmd));
+    if(command->cmd == NULL)
+    {
+        __redisClusterAsyncSetError(acc,REDIS_ERR_OOM,"Out of memory");
+        goto error;
+    }
+    memcpy(command->cmd, cmd, len);
     command->clen = len;
 
     commands = listCreate();
@@ -4460,8 +4491,6 @@ int redisClustervAsyncCommand(redisClusterAsyncContext *acc,
     commands->free = listCommandFree;
 
     slot_num = command_format_by_slot(cc, command, commands);
-
-    //slot_num = slot_get_by_command(cc, cmd, len);
 
     if(slot_num < 0)
     {
@@ -4540,10 +4569,6 @@ error:
     {
         command_destroy(command);
     }
-    else if(cmd != NULL)
-    {
-        free(cmd);
-    }
 
     if(commands != NULL)
     {
@@ -4551,6 +4576,34 @@ error:
     }
 
     return REDIS_ERR;
+}
+
+
+int redisClustervAsyncCommand(redisClusterAsyncContext *acc, 
+    redisClusterCallbackFn *fn, void *privdata, const char *format, va_list ap) {
+    int ret;
+    char *cmd;
+    int len;
+
+    if(acc == NULL)
+    {
+        return REDIS_ERR;
+    }
+
+    len = redisvFormatCommand(&cmd,format,ap);
+    if (len == -1) {
+        __redisClusterAsyncSetError(acc,REDIS_ERR_OOM,"Out of memory");
+        return REDIS_ERR;
+    } else if (len == -2) {
+        __redisClusterAsyncSetError(acc,REDIS_ERR_OTHER,"Invalid format string");
+        return REDIS_ERR;
+    }
+
+    ret = redisClusterAsyncFormattedCommand(acc, fn, privdata, cmd, len);
+
+    free(cmd);
+
+    return ret;
 }
 
 int redisClusterAsyncCommand(redisClusterAsyncContext *acc, 
@@ -4561,6 +4614,25 @@ int redisClusterAsyncCommand(redisClusterAsyncContext *acc,
     va_start(ap,format);
     ret = redisClustervAsyncCommand(acc, fn, privdata, format, ap);
     va_end(ap);
+
+    return ret;
+}
+
+int redisClusterAsyncCommandArgv(redisClusterAsyncContext *acc, 
+    redisClusterCallbackFn *fn, void *privdata, int argc, const char **argv, const size_t *argvlen) {
+    int ret;
+    char *cmd;
+    int len;
+    
+    len = redisFormatCommandArgv(&cmd,argc,argv,argvlen);
+    if (len == -1) {
+        __redisClusterAsyncSetError(acc,REDIS_ERR_OOM,"Out of memory");
+        return REDIS_ERR;
+    }
+
+    ret = redisClusterAsyncFormattedCommand(acc, fn, privdata, cmd, len);
+
+    free(cmd);
 
     return ret;
 }

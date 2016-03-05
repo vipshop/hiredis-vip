@@ -31,20 +31,26 @@ redisClusterContext *redisClusterConnectWithTimeout(const char *addrs, const str
 redisClusterContext *redisClusterConnectNonBlock(const char *addrs, int flags);
 void redisClusterFree(redisClusterContext *cc);
 void redisClusterSetMaxRedirect(redisClusterContext *cc, int max_redirect_count);
+void *redisClusterFormattedCommand(redisClusterContext *cc, char *cmd, int len);
 void *redisClustervCommand(redisClusterContext *cc, const char *format, va_list ap);
 void *redisClusterCommand(redisClusterContext *cc, const char *format, ...);
+void *redisClusterCommandArgv(redisClusterContext *cc, int argc, const char **argv, const size_t *argvlen);
 redisContext *ctx_get_by_node(struct cluster_node *node, const struct timeval *timeout, int flags);
+int redisClusterAppendFormattedCommand(redisClusterContext *cc, char *cmd, int len);
 int redisClustervAppendCommand(redisClusterContext *cc, const char *format, va_list ap);
 int redisClusterAppendCommand(redisClusterContext *cc, const char *format, ...);
-int redisClusterAppendCommandArgv(redisClusterContext *cc, int argc, const char **argv);
+int redisClusterAppendCommandArgv(redisClusterContext *cc, int argc, const char **argv, const size_t *argvlen);
 int redisClusterGetReply(redisClusterContext *cc, void **reply);
 void redisCLusterReset(redisClusterContext *cc);
 
 redisClusterAsyncContext *redisClusterAsyncConnect(const char *addrs, int flags);
 int redisClusterAsyncSetConnectCallback(redisClusterAsyncContext *acc, redisConnectCallback *fn);
 int redisClusterAsyncSetDisconnectCallback(redisClusterAsyncContext *acc, redisDisconnectCallback *fn);
+int redisClusterAsyncFormattedCommand(redisClusterAsyncContext *acc, redisClusterCallbackFn *fn, void *privdata, char *cmd, int len);
 int redisClustervAsyncCommand(redisClusterAsyncContext *acc, redisClusterCallbackFn *fn, void *privdata, const char *format, va_list ap);
 int redisClusterAsyncCommand(redisClusterAsyncContext *acc, redisClusterCallbackFn *fn, void *privdata, const char *format, ...);
+int redisClusterAsyncCommandArgv(redisClusterAsyncContext *acc, redisClusterCallbackFn *fn, void *privdata, int argc, const char **argv, const size_t *argvlen);
+
 void redisClusterAsyncDisconnect(redisClusterAsyncContext *acc);
 void redisClusterAsyncFree(redisClusterAsyncContext *acc);
 ```
