@@ -3,7 +3,6 @@
 #define __HIRCLUSTER_H
 
 #include "hiredis.h"
-#include "adlist.h"
 #include "async.h"
 
 #define HIREDIS_VIP_MAJOR 0
@@ -31,6 +30,7 @@
 #define HIRCLUSTER_FLAG_ROUTE_USE_SLOTS     0x4000
 
 struct dict;
+struct list;
 
 typedef struct cluster_node
 {
@@ -42,8 +42,8 @@ typedef struct cluster_node
     uint8_t myself;   /* myself ? */
     redisContext *con;
     redisAsyncContext *acon;
-    list *slots;
-    list *slaves;
+    struct list *slots;
+    struct list *slaves;
     int failure_count;
     void *data;     /* Not used by hiredis */
     struct hiarray *migrating;  /* copen_slot[] */
@@ -91,7 +91,7 @@ typedef struct redisClusterContext {
     int max_redirect_count;
     int retry_count;
 
-    list *requests;
+    struct list *requests;
 
     int need_update_route;
     int64_t update_route_time;
@@ -130,7 +130,7 @@ struct dict *parse_cluster_slots(redisClusterContext *cc, redisReply *reply, int
 
 struct redisClusterAsyncContext;
 
-typedef int (adapterAttachFn)(struct redisAsyncContext*, void*);
+typedef int (adapterAttachFn)(redisAsyncContext*, void*);
 
 typedef void (redisClusterCallbackFn)(struct redisClusterAsyncContext*, void*, void*);
 

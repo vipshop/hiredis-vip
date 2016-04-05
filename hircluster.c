@@ -8,10 +8,10 @@
 
 #include "hircluster.h"
 #include "hiutil.h"
+#include "adlist.h"
 #include "hiarray.h"
 #include "command.h"
 #include "dict.c"
-#include "async.h"
 
 #define REDIS_COMMAND_CLUSTER_NODES "CLUSTER NODES"
 #define REDIS_COMMAND_CLUSTER_SLOTS "CLUSTER SLOTS"
