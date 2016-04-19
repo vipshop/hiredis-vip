@@ -168,7 +168,7 @@ struct cmd {
 
     redisReply           *reply;
 
-    list                 *sub_commands;   /* just for pipeline and multi-key commands */
+    hilist                 *sub_commands;   /* just for pipeline and multi-key commands */
 };
 
 void redis_parse_cmd(struct cmd *r);

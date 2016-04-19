@@ -30,7 +30,7 @@
 #define HIRCLUSTER_FLAG_ROUTE_USE_SLOTS     0x4000
 
 struct dict;
-struct list;
+struct hilist;
 
 typedef struct cluster_node
 {
@@ -42,8 +42,8 @@ typedef struct cluster_node
     uint8_t myself;   /* myself ? */
     redisContext *con;
     redisAsyncContext *acon;
-    struct list *slots;
-    struct list *slaves;
+    struct hilist *slots;
+    struct hilist *slaves;
     int failure_count;
     void *data;     /* Not used by hiredis */
     struct hiarray *migrating;  /* copen_slot[] */
@@ -91,7 +91,7 @@ typedef struct redisClusterContext {
     int max_redirect_count;
     int retry_count;
 
-    struct list *requests;
+    struct hilist *requests;
 
     int need_update_route;
     int64_t update_route_time;

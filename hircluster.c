@@ -1940,7 +1940,7 @@ static void print_cluster_node_list(redisClusterContext *cc)
     listIter *it;
     listNode *ln;
     cluster_node *master, *slave;
-    list *slaves;
+    hilist *slaves;
 
     if(cc == NULL)
     {
@@ -2926,7 +2926,7 @@ ask_retry:
 }
 
 static int command_pre_fragment(redisClusterContext *cc, 
-    struct cmd *command, list *commands)
+    struct cmd *command, hilist *commands)
 {
     
     struct keypos *kp, *sub_kp;
@@ -3202,7 +3202,7 @@ done:
 }
 
 static void *command_post_fragment(redisClusterContext *cc, 
-    struct cmd *command, list *commands)
+    struct cmd *command, hilist *commands)
 {
     struct cmd *sub_command;
     listNode *list_node;
@@ -3331,7 +3331,7 @@ static void *command_post_fragment(redisClusterContext *cc,
  * Otherwise if  the commands > 1 , slot_num is the last subcommand slot number. 
  */
 static int command_format_by_slot(redisClusterContext *cc, 
-    struct cmd *command, list *commands)
+    struct cmd *command, hilist *commands)
 {
     struct keypos *kp;
     int key_count;
@@ -3395,7 +3395,7 @@ void *redisClusterFormattedCommand(redisClusterContext *cc, char *cmd, int len) 
     redisReply *reply = NULL;
     int slot_num;
     struct cmd *command = NULL, *sub_command;
-    list *commands = NULL;
+    hilist *commands = NULL;
     listNode *list_node;
     listIter *list_iter = NULL;
 
@@ -3572,7 +3572,7 @@ int redisClusterAppendFormattedCommand(redisClusterContext *cc,
     char *cmd, int len) {
     int slot_num;
     struct cmd *command = NULL, *sub_command;
-    list *commands = NULL;
+    hilist *commands = NULL;
     listNode *list_node;
     listIter *list_iter = NULL;
 
@@ -3814,7 +3814,7 @@ static int redisCLusterSendAll(redisClusterContext *cc)
 int redisClusterGetReply(redisClusterContext *cc, void **reply) {
 
     struct cmd *command, *sub_command;
-    list *commands = NULL;
+    hilist *commands = NULL;
     listNode *list_command, *list_sub_command;
     listIter *list_iter;
     int slot_num;
@@ -4443,7 +4443,7 @@ int redisClusterAsyncFormattedCommand(redisClusterAsyncContext *acc,
     cluster_node *node;
     redisAsyncContext *ac;
     struct cmd *command = NULL;
-    list *commands = NULL;
+    hilist *commands = NULL;
     cluster_async_data *cad;
 
     if(acc == NULL)
