@@ -2,6 +2,7 @@
 #define __COMMAND_H_
 
 #include <stdint.h>
+#include <stdlib.h>
 
 #include "hiredis.h"
 #include "adlist.h"

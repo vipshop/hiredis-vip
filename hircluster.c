@@ -649,9 +649,7 @@ static void cluster_nodes_swap_ctx(dict *nodes_f, dict *nodes_t)
 static int
 cluster_slot_start_cmp(const void *t1, const void *t2)
 {
-    const cluster_slot **s1 = t1, **s2 = t2;
-
-    return (*s1)->start > (*s2)->start?1:-1;
+    return ((cluster_slot*)t1)->start > ((cluster_slot*)t2)->start ? 1 : -1;
 }
 
 static int
