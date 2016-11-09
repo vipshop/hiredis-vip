@@ -11,6 +11,7 @@
 #include "adlist.h"
 #include "hiarray.h"
 #include "command.h"
+#include "net.h"
 #include "dict.c"
 
 #define REDIS_COMMAND_CLUSTER_NODES "CLUSTER NODES"
@@ -1291,6 +1292,20 @@ cluster_update_route_by_addr(redisClusterContext *cc,
         goto error;
     }
 
+#if 1
+    // Add auth
+    if(cc->auth){
+        reply = redisCommand(c, "auth %s", cc->auth);
+        if(reply == NULL){
+            __redisClusterSetError(cc,REDIS_ERR_OTHER,
+                "Command(auth XXXXX) reply error(NULL).");
+            goto error;
+        }
+
+        freeReplyObject(reply);
+    }
+#endif
+
     if(cc->flags & HIRCLUSTER_FLAG_ROUTE_USE_SLOTS){
         reply = redisCommand(c, REDIS_COMMAND_CLUSTER_SLOTS);
         if(reply == NULL){
@@ -1998,6 +2013,7 @@ static redisClusterContext *redisClusterContextInit(void) {
 
     cc->err = 0;
     cc->errstr[0] = '\0';
+    cc->auth[0] = '\0';
     cc->ip = NULL;
     cc->port = 0;
     cc->flags = 0;
@@ -2151,7 +2167,6 @@ static redisClusterContext *_redisClusterConnect(redisClusterContext *cc, const 
     {
         return NULL;
     }
-    
 
     address = sdssplitlen(addrs, strlen(addrs), CLUSTER_ADDRESS_SEPARATOR, 
         strlen(CLUSTER_ADDRESS_SEPARATOR), &address_count);
@@ -2194,10 +2209,34 @@ redisClusterContext *redisClusterConnect(const char *addrs, int flags)
     {
         cc->flags |= flags;
     }
-    
+
     return _redisClusterConnect(cc, addrs);
 }
 
+redisClusterContext *redisClusterConnectWithAuth(const char *addrs, const char *auth, int flags)
+{
+    redisClusterContext *cc;
+
+    cc = redisClusterContextInit();
+
+    if(cc == NULL)
+    {
+        return NULL;
+    }
+
+    cc->flags |= REDIS_BLOCK;
+    if(flags)
+    {
+        cc->flags |= flags;
+    }
+
+    if(auth)
+    {  
+        memcpy(cc->auth, auth, strlen(auth));
+    }
+
+    return _redisClusterConnect(cc, addrs);
+}
 redisClusterContext *redisClusterConnectWithTimeout(
     const char *addrs, const struct timeval tv, int flags)
 {
@@ -2226,7 +2265,8 @@ redisClusterContext *redisClusterConnectWithTimeout(
     return _redisClusterConnect(cc, addrs);
 }
 
-redisClusterContext *redisClusterConnectNonBlock(const char *addrs, int flags) {
+redisClusterContext *redisClusterConnectNonBlock(const char *addrs, 
+                                                        const char *auth, int flags) {
 
     redisClusterContext *cc;
 
@@ -2242,7 +2282,12 @@ redisClusterContext *redisClusterConnectNonBlock(const char *addrs, int flags) {
     {
         cc->flags |= flags;
     }
-    
+
+    if(auth)
+    {
+        memcpy(cc->auth, auth, strlen(auth));
+    }
+
     return _redisClusterConnect(cc, addrs);
 }
 
@@ -4044,7 +4089,7 @@ redisAsyncContext * actx_get_by_node(redisClusterAsyncContext *acc,
     cluster_node *node)
 {
     redisAsyncContext *ac;
-    
+
     if(node == NULL)
     {
         return NULL;
@@ -4089,6 +4134,25 @@ redisAsyncContext * actx_get_by_node(redisClusterAsyncContext *acc,
     
     node->acon = ac;
 
+#if 1
+    //Add auth
+    redisReply *reply = NULL;
+    ac->c.flags |= REDIS_BLOCK;
+    redisSetBlocking(&ac->c, 1);
+    if (acc->cc->auth)
+    {
+        reply = redisCommand(&ac->c, "auth %s", acc->cc->auth);
+        if(reply == NULL){
+            __redisClusterSetError(acc->cc, REDIS_ERR_OTHER,
+                "Command(auth XXXXX) reply error(NULL).");
+        }
+
+        freeReplyObject(reply);
+    }
+    redisSetBlocking(&ac->c, 0);
+    ac->c.flags &= ~REDIS_BLOCK;
+
+#endif
     return ac;
 }
 
@@ -4143,12 +4207,13 @@ static redisAsyncContext *actx_get_after_update_route_by_slot(
     return ac;
 }
 
-redisClusterAsyncContext *redisClusterAsyncConnect(const char *addrs, int flags) {
+redisClusterAsyncContext *redisClusterAsyncConnect(const char *addrs, 
+                                                const char *auth, int flags) {
 
     redisClusterContext *cc;
     redisClusterAsyncContext *acc;
 
-    cc = redisClusterConnectNonBlock(addrs, flags);
+    cc = redisClusterConnectNonBlock(addrs, auth, flags);
     if(cc == NULL)
     {
         return NULL;
