@@ -3187,7 +3187,6 @@ done:
         && listLength(commands) == 1)
     {
         listNode *list_node = listFirst(commands);
-        command_destroy(list_node->value);
         listDelNode(commands, list_node);
         if(command->frag_seq)
         {
