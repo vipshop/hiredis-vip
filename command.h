@@ -2,6 +2,7 @@
 #define __COMMAND_H_
 
 #include <stdint.h>
+#include <stdlib.h>
 
 #include "hiredis.h"
 #include "adlist.h"
@@ -162,7 +163,7 @@ struct cmd {
     unsigned             quit:1;          /* quit request? */
     unsigned             noforward:1;     /* not need forward (example: ping) */
 
-    int                  slot_num;        /* this command should send to witch slot? 
+    int                  slot_num;        /* this command should send to which slot? 
                                                                           * -1:the keys in this command cross different slots*/
     struct cmd           **frag_seq;      /* sequence of fragment command, map from keys to fragments*/
 
