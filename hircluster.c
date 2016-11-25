@@ -2630,11 +2630,11 @@ static int __redisClusterAppendCommand(redisClusterContext *cc,
 
 /* Helper function for the redisClusterGetReply* family of functions.
  */
-int __redisClusterGetReply(redisClusterContext *cc, int slot_num, void **reply)
+static int __redisClusterGetReply(redisClusterContext *cc, int slot_num, void **reply)
 {
     cluster_node *node;
     redisContext *c;
-    
+
     if(cc == NULL || slot_num < 0 || reply == NULL)
     {
         return REDIS_ERR;
@@ -2673,7 +2673,7 @@ int __redisClusterGetReply(redisClusterContext *cc, int slot_num, void **reply)
         __redisClusterSetError(cc, c->err, c->errstr);
         return REDIS_ERR;
     }
-
+    
     if(cluster_reply_error_type(*reply) == CLUSTER_ERR_MOVED)
     {
         cc->need_update_route = 1;
@@ -3585,7 +3585,7 @@ int redisClusterAppendFormattedCommand(redisClusterContext *cc,
         }
 
         cc->requests->free = listCommandFree;
-    }   
+    }
     
     command = command_get();
     if(command == NULL)
@@ -3791,7 +3791,7 @@ static int redisCLusterSendAll(redisClusterContext *cc)
         if(c == NULL)
         {
             continue;
-        }       
+        }
 
         if (c->flags & REDIS_BLOCK) {
             /* Write until done */
@@ -3810,6 +3810,43 @@ static int redisCLusterSendAll(redisClusterContext *cc)
     return REDIS_OK;
 }
 
+static int redisCLusterClearAll(redisClusterContext *cc)
+{
+    dictIterator *di;
+    dictEntry *de;
+    struct cluster_node *node;
+    redisContext *c = NULL;
+    int wdone = 0;
+    
+    if(cc == NULL || cc->nodes == NULL)
+    {
+        return REDIS_ERR;
+    }
+
+    di = dictGetIterator(cc->nodes);
+    while((de = dictNext(di)) != NULL)
+    {
+        node = dictGetEntryVal(de);
+        if(node == NULL)
+        {
+            continue;
+        }
+
+        c = node->con;
+        if(c == NULL)
+        {
+            continue;
+        }
+
+        redisFree(c);
+        node->con = NULL;
+    }
+    
+    dictReleaseIterator(di);
+    
+    return REDIS_OK;
+}
+
 int redisClusterGetReply(redisClusterContext *cc, void **reply) {
 
     struct cmd *command, *sub_command;
@@ -3819,10 +3856,16 @@ int redisClusterGetReply(redisClusterContext *cc, void **reply) {
     int slot_num;
     void *sub_reply;
 
-    if(cc == NULL || cc->requests == NULL || reply == NULL)
-    {
+    if(cc == NULL || reply == NULL)
         return REDIS_ERR;
-    }
+
+    cc->err = 0;
+    cc->errstr[0] = '\0';
+
+    *reply = NULL;
+
+    if (cc->requests == NULL)
+        return REDIS_ERR;
 
     list_command = listFirst(cc->requests);
 
@@ -3840,7 +3883,7 @@ int redisClusterGetReply(redisClusterContext *cc, void **reply) {
             "command in the requests list is null");
         goto error;
     }
-
+    
     slot_num = command->slot_num;
     if(slot_num >= 0)
     {
@@ -3911,22 +3954,26 @@ void redisCLusterReset(redisClusterContext *cc)
         return;
     }
 
-    redisCLusterSendAll(cc);
-    
-    do{
-        status = redisClusterGetReply(cc, &reply);
-        if(status == REDIS_OK)
-        {
-            freeReplyObject(reply);
+    if (cc->err) {
+        redisCLusterClearAll(cc);
+    } else {
+        redisCLusterSendAll(cc);
+        
+        do{
+            status = redisClusterGetReply(cc, &reply);
+            if(status == REDIS_OK)
+            {
+                freeReplyObject(reply);
+            }
+            else
+            {
+                redisReaderFree(c->reader);
+                c->reader = redisReaderCreate();
+                break;
+            }
         }
-        else
-        {
-            redisReaderFree(c->reader);
-            c->reader = redisReaderCreate();
-            break;
-        }
+        while(reply != NULL);
     }
-    while(reply != NULL);
     
     if(cc->requests)
     {
