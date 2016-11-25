@@ -43,7 +43,7 @@ int redisClusterAppendCommandArgv(redisClusterContext *cc, int argc, const char 
 int redisClusterGetReply(redisClusterContext *cc, void **reply);
 void redisCLusterReset(redisClusterContext *cc);
 
-redisClusterAsyncContext *redisClusterAsyncConnect(const char *addrs, int flags);
+redisClusterAsyncContext *redisClusterAsyncConnect(const char *addrs, const char *auth, int flags);
 int redisClusterAsyncSetConnectCallback(redisClusterAsyncContext *acc, redisConnectCallback *fn);
 int redisClusterAsyncSetDisconnectCallback(redisClusterAsyncContext *acc, redisDisconnectCallback *fn);
 int redisClusterAsyncFormattedCommand(redisClusterAsyncContext *acc, redisClusterCallbackFn *fn, void *privdata, char *cmd, int len);
@@ -185,7 +185,7 @@ should be checked after creation to see if there were errors creating the connec
 Because the connection that will be created is non-blocking, the kernel is not able to
 instantly return if the specified host and port is able to accept a connection.
 ```c
-redisClusterAsyncContext *acc = redisClusterAsyncConnect("127.0.0.1:6379", HIRCLUSTER_FLAG_NULL);
+redisClusterAsyncContext *acc = redisClusterAsyncConnect("127.0.0.1:6379", "auth", HIRCLUSTER_FLAG_NULL);
 if (acc->err) {
     printf("Error: %s\n", acc->errstr);
     // handle error
