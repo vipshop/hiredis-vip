@@ -68,6 +68,7 @@ typedef struct redisAsyncContext {
 
     /* Not used by hiredis */
     void *data;
+    void (*dataHandler)(struct redisAsyncContext* ac);
 
     /* Event library data and hooks */
     struct {

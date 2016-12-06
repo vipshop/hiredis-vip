@@ -30,7 +30,6 @@
 typedef struct cluster_async_data
 {
     redisClusterAsyncContext *acc;
-    struct cluster_node *node;
     struct cmd *command;
     redisClusterCallbackFn *callback;
     int retry_count;
@@ -639,6 +638,10 @@ static void cluster_nodes_swap_ctx(dict *nodes_f, dict *nodes_t)
             ac = node_f->acon;
             node_f->acon = node_t->acon;
             node_t->acon = ac;
+
+            node_t->acon->data = node_t;
+            if (node_f->acon)
+                node_f->acon->data = node_f;
         }
     }
 
@@ -2332,7 +2335,7 @@ static cluster_node *node_get_by_slot(redisClusterContext *cc, uint32_t slot_num
             middle = start + (end - start)/2;
         }
 
-        ASSERT(middle >= 0 && middle < slot_count);
+        ASSERT(middle < slot_count);
 
         slot = hiarray_get(slots, middle);
         if((*slot)->start > slot_num)
@@ -4061,7 +4064,6 @@ static cluster_async_data *cluster_async_data_get(void)
     }
 
     cad->acc = NULL;
-    cad->node = NULL;
     cad->command = NULL;
     cad->callback = NULL;
     cad->privdata = NULL;
@@ -4086,6 +4088,16 @@ static void cluster_async_data_free(cluster_async_data *cad)
     cad = NULL;
 }
 
+static void unlinkAsyncContextAndNode(redisAsyncContext* ac)
+{
+    cluster_node *node;
+
+    if (ac->data) {
+        node = (cluster_node *)(ac->data);
+        node->acon = NULL;
+    }
+}
+
 redisAsyncContext * actx_get_by_node(redisClusterAsyncContext *acc, 
     cluster_node *node)
 {
@@ -4099,9 +4111,10 @@ redisAsyncContext * actx_get_by_node(redisClusterAsyncContext *acc,
     ac = node->acon;
     if(ac != NULL)
     {
-        if(ac->c.err == 0)
-        {
+        if (ac->c.err == 0) {
             return ac;
+        } else {
+            NOT_REACHED();
         }
     }
 
@@ -4132,9 +4145,11 @@ redisAsyncContext * actx_get_by_node(redisClusterAsyncContext *acc,
     {
         redisAsyncSetDisconnectCallback(ac, acc->onDisconnect);
     }
-    
-    node->acon = ac;
 
+    ac->data = node;
+    ac->dataHandler = unlinkAsyncContextAndNode;
+    node->acon = ac;
+    
     return ac;
 }
 
@@ -4277,11 +4292,8 @@ static void redisClusterAsyncCallback(redisAsyncContext *ac, void *r, void *priv
         //If you have a better idea, please contact with me. Thank you.
         //My email: diguo58@gmail.com
         
-        node = cad->node;
-        if(node->acon != NULL)
-        {
-            node->acon = NULL;
-        }
+        node = (cluster_node *)(ac->data);
+        ASSERT(node != NULL);
         
         __redisClusterAsyncSetError(acc, 
             ac->err, ac->errstr);
@@ -4371,56 +4383,49 @@ static void redisClusterAsyncCallback(redisAsyncContext *ac, void *r, void *priv
         switch(error_type)
         {
         case CLUSTER_ERR_MOVED:
-
             ac_retry = actx_get_after_update_route_by_slot(acc, command->slot_num);
             if(ac_retry == NULL)
             {
                 goto done;
             }
-
-            cad->node = node_get_by_table(cc, (uint32_t)command->slot_num);
             
             break;
         case CLUSTER_ERR_ASK:
+            node = node_get_by_ask_error_reply(cc, reply);
+            if(node == NULL)
             {
-                node = node_get_by_ask_error_reply(cc, reply);
-                if(node == NULL)
-                {
-                    __redisClusterAsyncSetError(acc, 
-                        cc->err, cc->errstr);
-                    goto done;
-                }
-
-                ac_retry = actx_get_by_node(acc, node);
-                if(ac_retry == NULL)
-                {
-                    __redisClusterAsyncSetError(acc, 
-                        REDIS_ERR_OTHER, "actx get by node error");
-                    goto done;
-                }
-                else if(ac_retry->err)
-                {
-                    __redisClusterAsyncSetError(acc, 
-                        ac_retry->err, ac_retry->errstr);
-                    goto done;
-                }
-
-                ret = redisAsyncCommand(ac_retry,
-                    NULL,NULL,REDIS_COMMAND_ASKING);
-                if(ret != REDIS_OK)
-                {
-                    goto error;
-                }
-
-                cad->node = node;
-                
-                break;
+                __redisClusterAsyncSetError(acc, 
+                    cc->err, cc->errstr);
+                goto done;
             }
+
+            ac_retry = actx_get_by_node(acc, node);
+            if(ac_retry == NULL)
+            {
+                __redisClusterAsyncSetError(acc, 
+                    REDIS_ERR_OTHER, "actx get by node error");
+                goto done;
+            }
+            else if(ac_retry->err)
+            {
+                __redisClusterAsyncSetError(acc, 
+                    ac_retry->err, ac_retry->errstr);
+                goto done;
+            }
+
+            ret = redisAsyncCommand(ac_retry,
+                NULL,NULL,REDIS_COMMAND_ASKING);
+            if(ret != REDIS_OK)
+            {
+                goto error;
+            }
+            
+            break;
         case CLUSTER_ERR_TRYAGAIN:
         case CLUSTER_ERR_CROSSSLOT:
         case CLUSTER_ERR_CLUSTERDOWN:
-
             ac_retry = ac;
+            
             break;
         default:
 
@@ -4590,7 +4595,6 @@ int redisClusterAsyncFormattedCommand(redisClusterAsyncContext *acc,
     }
 
     cad->acc = acc;
-    cad->node = node;
     cad->command = command;
     cad->callback = fn;
     cad->privdata = privdata;

@@ -119,6 +119,7 @@ static redisAsyncContext *redisAsyncInitialize(redisContext *c) {
     ac->err = 0;
     ac->errstr = NULL;
     ac->data = NULL;
+    ac->dataHandler = NULL;
 
     ac->ev.data = NULL;
     ac->ev.addRead = NULL;
@@ -310,6 +311,10 @@ static void __redisAsyncFree(redisAsyncContext *ac) {
         } else {
             ac->onDisconnect(ac,(ac->err == 0) ? REDIS_OK : REDIS_ERR);
         }
+    }
+
+    if (ac->dataHandler) {
+        ac->dataHandler(ac);
     }
 
     /* Cleanup self */
