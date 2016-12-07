@@ -41,7 +41,7 @@ int redisClustervAppendCommand(redisClusterContext *cc, const char *format, va_l
 int redisClusterAppendCommand(redisClusterContext *cc, const char *format, ...);
 int redisClusterAppendCommandArgv(redisClusterContext *cc, int argc, const char **argv, const size_t *argvlen);
 int redisClusterGetReply(redisClusterContext *cc, void **reply);
-void redisCLusterReset(redisClusterContext *cc);
+void redisClusterReset(redisClusterContext *cc);
 
 redisClusterAsyncContext *redisClusterAsyncConnect(const char *addrs, int flags);
 int redisClusterAsyncSetConnectCallback(redisClusterAsyncContext *acc, redisConnectCallback *fn);
@@ -145,9 +145,9 @@ subsequent replies. The return value for this function is either `REDIS_OK` or `
 the latter means an error occurred while reading a reply. Just as with the other commands,
 the `err` field in the context can be used to find out what the cause of this error is.
 ```c
-void redisCLusterReset(redisClusterContext *cc);
+void redisClusterReset(redisClusterContext *cc);
 ```
-Warning: You must call `redisCLusterReset` function after one pipelining anyway.
+Warning: You must call `redisClusterReset` function after one pipelining anyway.
 
 The following examples shows a simple cluster pipeline:
 ```c
@@ -158,7 +158,7 @@ redisClusterGetReply(clusterContext,&reply); // reply for SET
 freeReplyObject(reply);
 redisClusterGetReply(clusterContext,&reply); // reply for GET
 freeReplyObject(reply);
-redisCLusterReset(clusterContext);
+redisClusterReset(clusterContext);
 ```
 This API can also be used to implement a blocking subscriber:
 ```c
@@ -168,7 +168,7 @@ while(redisClusterGetReply(clusterContext,&reply) == REDIS_OK) {
     // consume message
     freeReplyObject(reply);
 }
-redisCLusterReset(clusterContext);
+redisClusterReset(clusterContext);
 ```
 
 ## Cluster asynchronous API
