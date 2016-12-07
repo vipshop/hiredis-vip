@@ -160,16 +160,6 @@ redisClusterGetReply(clusterContext,&reply); // reply for GET
 freeReplyObject(reply);
 redisClusterReset(clusterContext);
 ```
-This API can also be used to implement a blocking subscriber:
-```c
-reply = redisClusterCommand(clusterContext,"SUBSCRIBE foo");
-freeReplyObject(reply);
-while(redisClusterGetReply(clusterContext,&reply) == REDIS_OK) {
-    // consume message
-    freeReplyObject(reply);
-}
-redisClusterReset(clusterContext);
-```
 
 ## Cluster asynchronous API
 
@@ -256,22 +246,6 @@ callbacks have been executed. After this, the disconnection callback is executed
 
 There are a few hooks that need to be set on the cluster context object after it is created.
 See the `adapters/` directory for bindings to *ae* and *libevent*.
-
-## Package
-
-If you only want get library, you can "yum install hiredis-vip" or "apt-get install hiredis-vip" instead of building from source code.
-
-If you used hiredis-vip in your project, you can install "hiredis-vip-devel" package for development.
-
-Before install the package, execute the follow command first:
-
-**deb package** : `curl -s https://packagecloud.io/install/repositories/deep/packages/script.deb.sh | sudo bash`
-
-**rpm package** : `curl -s https://packagecloud.io/install/repositories/deep/packages/script.rpm.sh | sudo bash`
-
-You can also download the packages from "https://packagecloud.io/deep/packages" and install by yourself.
-
-If you want to support other OS packages, please contact with me.
 
 ## AUTHORS
 
