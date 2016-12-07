@@ -25,8 +25,9 @@
 /* The flag to decide whether add open slot  
   * for master node. (10000000000000) */
 #define HIRCLUSTER_FLAG_ADD_OPENSLOT        0x2000
-/* The flag to decide whether add open slot  
-  * for master node. (100000000000000) */
+/* The flag to decide whether get the route 
+  * table by 'cluster slots' command. Default   
+  * is 'cluster nodes' command.*/
 #define HIRCLUSTER_FLAG_ROUTE_USE_SLOTS     0x4000
 
 struct dict;
@@ -118,7 +119,7 @@ int redisClustervAppendCommand(redisClusterContext *cc, const char *format, va_l
 int redisClusterAppendCommand(redisClusterContext *cc, const char *format, ...);
 int redisClusterAppendCommandArgv(redisClusterContext *cc, int argc, const char **argv, const size_t *argvlen);
 int redisClusterGetReply(redisClusterContext *cc, void **reply);
-void redisCLusterReset(redisClusterContext *cc);
+void redisClusterReset(redisClusterContext *cc);
 
 int cluster_update_route(redisClusterContext *cc);
 int test_cluster_update_route(redisClusterContext *cc);

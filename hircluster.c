@@ -3819,13 +3819,19 @@ static int redisCLusterClearAll(redisClusterContext *cc)
     dictEntry *de;
     struct cluster_node *node;
     redisContext *c = NULL;
-    int wdone = 0;
     
-    if(cc == NULL || cc->nodes == NULL)
-    {
+    if (cc == NULL) {
         return REDIS_ERR;
     }
 
+    if (cc->err) {
+        cc->err = 0;
+        memset(cc->errstr, '\0', strlen(cc->errstr));
+    }
+
+    if (cc->nodes == NULL) {
+        return REDIS_ERR;
+    }
     di = dictGetIterator(cc->nodes);
     while((de = dictNext(di)) != NULL)
     {
@@ -3946,9 +3952,8 @@ error:
     return REDIS_ERR;
 }
 
-void redisCLusterReset(redisClusterContext *cc)
+void redisClusterReset(redisClusterContext *cc)
 {
-    redisContext *c = NULL;
     int status;
     void *reply;
     
@@ -3962,20 +3967,15 @@ void redisCLusterReset(redisClusterContext *cc)
     } else {
         redisCLusterSendAll(cc);
         
-        do{
+        do {
             status = redisClusterGetReply(cc, &reply);
-            if(status == REDIS_OK)
-            {
+            if (status == REDIS_OK) {
                 freeReplyObject(reply);
-            }
-            else
-            {
-                redisReaderFree(c->reader);
-                c->reader = redisReaderCreate();
+            } else {
+                redisCLusterClearAll(cc);
                 break;
             }
-        }
-        while(reply != NULL);
+        } while(reply != NULL);
     }
     
     if(cc->requests)
