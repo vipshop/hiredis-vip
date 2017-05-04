@@ -7,7 +7,7 @@ OBJ=net.o hiredis.o sds.o async.o read.o hiarray.o hiutil.o command.o crc16.o ad
 EXAMPLES=hiredis-example hiredis-example-libevent hiredis-example-libev hiredis-example-glib
 TESTS=hiredis-test
 LIBNAME=libhiredis_vip
-PKGCONFNAME=hiredis.pc
+PKGCONFNAME=hiredis_vip.pc
 
 HIREDIS_VIP_MAJOR=$(shell grep HIREDIS_VIP_MAJOR hircluster.h | awk '{print $$3}')
 HIREDIS_VIP_MINOR=$(shell grep HIREDIS_VIP_MINOR hircluster.h | awk '{print $$3}')
@@ -161,10 +161,10 @@ $(PKGCONFNAME): hiredis.h
 	@echo libdir=$(PREFIX)/$(LIBRARY_PATH) >> $@
 	@echo includedir=$(PREFIX)/$(INCLUDE_PATH) >> $@
 	@echo >> $@
-	@echo Name: hiredis >> $@
-	@echo Description: Minimalistic C client library for Redis. >> $@
+	@echo Name: hiredis-vip >> $@
+	@echo Description: Minimalistic C client library for Redis and Redis Cluster. >> $@
 	@echo Version: $(HIREDIS_VIP_MAJOR).$(HIREDIS_VIP_MINOR).$(HIREDIS_VIP_PATCH) >> $@
-	@echo Libs: -L\$${libdir} -lhiredis >> $@
+	@echo Libs: -L\$${libdir} -lhiredis_vip >> $@
 	@echo Cflags: -I\$${includedir} -D_FILE_OFFSET_BITS=64 >> $@
 
 install: $(DYLIBNAME) $(STLIBNAME) $(PKGCONFNAME)
