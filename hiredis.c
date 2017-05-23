@@ -804,7 +804,15 @@ int redisBufferRead(redisContext *c) {
         if ((errno == EAGAIN && !(c->flags & REDIS_BLOCK)) || (errno == EINTR)) {
             /* Try again later */
         } else {
+#if 1 //shenzheng 2017-5-22 redis cluster
+            if (errno == EWOULDBLOCK && (c->flags & REDIS_BLOCK)) {
+                __redisSetError(c,REDIS_ERR_TIMEOUT,"Socket timeout");
+            } else {
+#endif //shenzheng 2017-5-22 redis cluster
             __redisSetError(c,REDIS_ERR_IO,NULL);
+#if 1 //shenzheng 2017-5-22 redis cluster
+            }
+#endif //shenzheng 2017-5-22 redis cluster
             return REDIS_ERR;
         }
     } else if (nread == 0) {
@@ -841,7 +849,15 @@ int redisBufferWrite(redisContext *c, int *done) {
             if ((errno == EAGAIN && !(c->flags & REDIS_BLOCK)) || (errno == EINTR)) {
                 /* Try again later */
             } else {
+#if 1 //shenzheng 2017-5-22 redis cluster
+                if (errno == EWOULDBLOCK && (c->flags & REDIS_BLOCK)) {
+                    __redisSetError(c,REDIS_ERR_TIMEOUT,"Socket timeout");
+                } else {
+#endif //shenzheng 2017-5-22 redis cluster
                 __redisSetError(c,REDIS_ERR_IO,NULL);
+#if 1 //shenzheng 2017-5-22 redis cluster
+                }
+#endif //shenzheng 2017-5-22 redis cluster
                 return REDIS_ERR;
             }
         } else if (nwritten > 0) {

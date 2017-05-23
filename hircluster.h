@@ -5,8 +5,8 @@
 #include "hiredis.h"
 #include "async.h"
 
-#define HIREDIS_VIP_MAJOR 0
-#define HIREDIS_VIP_MINOR 3
+#define HIREDIS_VIP_MAJOR 1
+#define HIREDIS_VIP_MINOR 0
 #define HIREDIS_VIP_PATCH 0
 
 #define REDIS_CLUSTER_SLOTS 16384
@@ -80,7 +80,9 @@ typedef struct redisClusterContext {
     int flags;
 
     enum redisConnectionType connection_type;
-    struct timeval *timeout;
+    struct timeval *connect_timeout;
+
+    struct timeval *timeout;    /* receive and send timeout. */
     
     struct hiarray *slots;
 
@@ -103,7 +105,21 @@ redisClusterContext *redisClusterConnectWithTimeout(const char *addrs,
     const struct timeval tv, int flags);
 redisClusterContext *redisClusterConnectNonBlock(const char *addrs, int flags);
 
+redisClusterContext *redisClusterContextInit(void);
 void redisClusterFree(redisClusterContext *cc);
+
+int redisClusterSetOptionAddNode(redisClusterContext *cc, const char *addr);
+int redisClusterSetOptionAddNodes(redisClusterContext *cc, const char *addrs);
+int redisClusterSetOptionConnectBlock(redisClusterContext *cc);
+int redisClusterSetOptionConnectNonBlock(redisClusterContext *cc);
+int redisClusterSetOptionParseSlaves(redisClusterContext *cc);
+int redisClusterSetOptionParseOpenSlots(redisClusterContext *cc);
+int redisClusterSetOptionRouteUseSlots(redisClusterContext *cc);
+int redisClusterSetOptionConnectTimeout(redisClusterContext *cc, const struct timeval tv);
+int redisClusterSetOptionTimeout(redisClusterContext *cc, const struct timeval tv);
+int redisClusterSetOptionMaxRedirect(redisClusterContext *cc,  int max_redirect_count);
+
+int redisClusterConnect2(redisClusterContext *cc);
 
 void redisClusterSetMaxRedirect(redisClusterContext *cc, int max_redirect_count);
 
@@ -112,7 +128,7 @@ void *redisClustervCommand(redisClusterContext *cc, const char *format, va_list 
 void *redisClusterCommand(redisClusterContext *cc, const char *format, ...);
 void *redisClusterCommandArgv(redisClusterContext *cc, int argc, const char **argv, const size_t *argvlen);
 
-redisContext *ctx_get_by_node(struct cluster_node *node, const struct timeval *timeout, int flags);
+redisContext *ctx_get_by_node(redisClusterContext *cc, struct cluster_node *node);
 
 int redisClusterAppendFormattedCommand(redisClusterContext *cc, char *cmd, int len);
 int redisClustervAppendCommand(redisClusterContext *cc, const char *format, va_list ap);

@@ -26,6 +26,52 @@ Hiredis-vip fully contained and based on [Hiredis](https://github.com/redis/hire
 ### CLUSTER API:
 
 ```c
+redisClusterContext *redisClusterContextInit(void);
+void redisClusterFree(redisClusterContext *cc);
+
+int redisClusterSetOptionAddNode(redisClusterContext *cc, const char *addr);
+int redisClusterSetOptionAddNodes(redisClusterContext *cc, const char *addrs);
+int redisClusterSetOptionConnectBlock(redisClusterContext *cc);
+int redisClusterSetOptionConnectNonBlock(redisClusterContext *cc);
+int redisClusterSetOptionParseSlaves(redisClusterContext *cc);
+int redisClusterSetOptionParseOpenSlots(redisClusterContext *cc);
+int redisClusterSetOptionRouteUseSlots(redisClusterContext *cc);
+int redisClusterSetOptionConnectTimeout(redisClusterContext *cc, const struct timeval tv);
+int redisClusterSetOptionTimeout(redisClusterContext *cc, const struct timeval tv);
+int redisClusterSetOptionMaxRedirect(redisClusterContext *cc,  int max_redirect_count);
+
+int redisClusterConnect2(redisClusterContext *cc);
+
+void *redisClusterFormattedCommand(redisClusterContext *cc, char *cmd, int len);
+void *redisClustervCommand(redisClusterContext *cc, const char *format, va_list ap);
+void *redisClusterCommand(redisClusterContext *cc, const char *format, ...);
+void *redisClusterCommandArgv(redisClusterContext *cc, int argc, const char **argv, const size_t *argvlen);
+int redisClusterAppendFormattedCommand(redisClusterContext *cc, char *cmd, int len);
+int redisClustervAppendCommand(redisClusterContext *cc, const char *format, va_list ap);
+int redisClusterAppendCommand(redisClusterContext *cc, const char *format, ...);
+int redisClusterAppendCommandArgv(redisClusterContext *cc, int argc, const char **argv, const size_t *argvlen);
+int redisClusterGetReply(redisClusterContext *cc, void **reply);
+void redisClusterReset(redisClusterContext *cc);
+
+redisContext *ctx_get_by_node(redisClusterContext *cc, struct cluster_node *node);
+
+redisClusterAsyncContext *redisClusterAsyncConnect(const char *addrs, int flags);
+int redisClusterAsyncSetConnectCallback(redisClusterAsyncContext *acc, redisConnectCallback *fn);
+int redisClusterAsyncSetDisconnectCallback(redisClusterAsyncContext *acc, redisDisconnectCallback *fn);
+int redisClusterAsyncFormattedCommand(redisClusterAsyncContext *acc, redisClusterCallbackFn *fn, void *privdata, char *cmd, int len);
+int redisClustervAsyncCommand(redisClusterAsyncContext *acc, redisClusterCallbackFn *fn, void *privdata, const char *format, va_list ap);
+int redisClusterAsyncCommand(redisClusterAsyncContext *acc, redisClusterCallbackFn *fn, void *privdata, const char *format, ...);
+int redisClusterAsyncCommandArgv(redisClusterAsyncContext *acc, redisClusterCallbackFn *fn, void *privdata, int argc, const char **argv, const size_t *argvlen);
+
+void redisClusterAsyncDisconnect(redisClusterAsyncContext *acc);
+void redisClusterAsyncFree(redisClusterAsyncContext *acc);
+
+redisAsyncContext *actx_get_by_node(redisClusterAsyncContext *acc, cluster_node *node);
+```
+
+### CLUSTER API (old api, version <= 0.3.0):
+
+```c
 redisClusterContext *redisClusterConnect(const char *addrs, int flags);
 redisClusterContext *redisClusterConnectWithTimeout(const char *addrs, const struct timeval tv, int flags);
 redisClusterContext *redisClusterConnectNonBlock(const char *addrs, int flags);
@@ -65,23 +111,31 @@ https://github.com/vipshop/hiredis-vip/wiki
 To consume the synchronous API, there are only a few function calls that need to be introduced:
 
 ```c
-redisClusterContext *redisClusterConnect(const char *addrs, int flags);
-void redisClusterSetMaxRedirect(redisClusterContext *cc, int max_redirect_count);
+redisClusterContext *redisClusterContextInit(void);
+int redisClusterSetOptionAddNodes(redisClusterContext *cc, const char *addrs);
+int redisClusterSetOptionMaxRedirect(redisClusterContext *cc, int max_redirect_count);
+int redisClusterSetOptionConnectTimeout(redisClusterContext *cc, const struct timeval tv);
+int redisClusterSetOptionTimeout(redisClusterContext *cc, const struct timeval tv);
+int redisClusterConnect2(redisClusterContext *cc);
 void *redisClusterCommand(redisClusterContext *cc, const char *format, ...);
 void redisClusterFree(redisClusterContext *cc);
 ```
 
 ### Cluster connecting
 
-The function `redisClusterConnect` is used to create a so-called `redisClusterContext`. The
-context is where Hiredis-vip Cluster holds state for connections. The `redisClusterContext`
+The function `redisClusterContextInit` is used to create a so-called `redisClusterContext`. 
+The function `redisClusterSetOptionAddNodes` is used to add the redis cluster address. 
+The function `redisClusterConnect2` is used to connect to the redis cluser. 
+The context is where Hiredis-vip Cluster holds state for connections. The `redisClusterContext`
 struct has an integer `err` field that is non-zero when the connection is in
 an error state. The field `errstr` will contain a string with a description of
 the error.
 After trying to connect to Redis using `redisClusterContext` you should
 check the `err` field to see if establishing the connection was successful:
 ```c
-redisClusterContext *cc = redisClusterConnect("127.0.0.1:6379", HIRCLUSTER_FLAG_NULL);
+redisClusterContext *cc = redisClusterContextInit();
+redisClusterSetOptionAddNodes(cc, "127.0.0.1:6379,127.0.0.1:6380");
+redisClusterConnect2(cc);
 if (cc != NULL && cc->err) {
     printf("Error: %s\n", cc->errstr);
     // handle error
@@ -250,6 +304,9 @@ See the `adapters/` directory for bindings to *ae* and *libevent*.
 ## AUTHORS
 
 Hiredis-vip was maintained and used at vipshop(https://github.com/vipshop).
+
 The redis client library part in hiredis-vip is same as hiredis(https://github.com/redis/hiredis).
+
 The redis cluster client library part in hiredis-vip is written by deep(https://github.com/deep011).
+
 Hiredis-vip is released under the BSD license.

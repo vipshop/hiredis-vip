@@ -49,6 +49,10 @@
 #if 1 //shenzheng 2015-8-10 redis cluster
 #define REDIS_ERR_CLUSTER_TOO_MANY_REDIRECT 6
 #endif //shenzheng 2015-8-10 redis cluster
+#if 1 //shenzheng 2017-5-22 redis cluster
+#define REDIS_ERR_TIMEOUT 7
+#endif //shenzheng 2017-5-22 redis cluster
+
 
 #define REDIS_REPLY_STRING 1
 #define REDIS_REPLY_ARRAY 2
