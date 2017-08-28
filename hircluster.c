@@ -3468,7 +3468,8 @@ static void *command_post_fragment(redisClusterContext *cc,
             NOT_REACHED();
         }
     }
-
+		listReleaseIterator(list_iter);
+		
     reply = hi_calloc(1,sizeof(*reply));
 
     if (reply == NULL)
