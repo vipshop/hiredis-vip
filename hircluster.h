@@ -49,7 +49,7 @@ typedef struct cluster_node
     void *data;     /* Not used by hiredis */
     struct hiarray *migrating;  /* copen_slot[] */
     struct hiarray *importing;  /* copen_slot[] */
-}cluster_node;
+} cluster_node;
 
 typedef struct cluster_slot
 {
@@ -76,6 +76,7 @@ typedef struct redisClusterContext {
     char errstr[128]; /* String representation of error when applicable */
     sds ip;
     int port;
+    char *passwd;//auth password
 
     int flags;
 
@@ -100,10 +101,11 @@ typedef struct redisClusterContext {
     int64_t update_route_time;
 } redisClusterContext;
 
-redisClusterContext *redisClusterConnect(const char *addrs, int flags);
-redisClusterContext *redisClusterConnectWithTimeout(const char *addrs, 
+//If authentication is not required, please set the "passwd" to NULL
+redisClusterContext *redisClusterConnect(const char *addrs, const char *passwd, int flags);
+redisClusterContext *redisClusterConnectWithTimeout(const char *addrs, const char *passwd,
     const struct timeval tv, int flags);
-redisClusterContext *redisClusterConnectNonBlock(const char *addrs, int flags);
+redisClusterContext *redisClusterConnectNonBlock(const char *addrs, const char *passwd, int flags);
 
 redisClusterContext *redisClusterContextInit(void);
 void redisClusterFree(redisClusterContext *cc);
@@ -175,7 +177,7 @@ typedef struct redisClusterAsyncContext {
 
 } redisClusterAsyncContext;
 
-redisClusterAsyncContext *redisClusterAsyncConnect(const char *addrs, int flags);
+redisClusterAsyncContext *redisClusterAsyncConnect(const char *addrs, const char *passwd, int flags);
 int redisClusterAsyncSetConnectCallback(redisClusterAsyncContext *acc, redisConnectCallback *fn);
 int redisClusterAsyncSetDisconnectCallback(redisClusterAsyncContext *acc, redisDisconnectCallback *fn);
 int redisClusterAsyncFormattedCommand(redisClusterAsyncContext *acc, redisClusterCallbackFn *fn, void *privdata, char *cmd, int len);
