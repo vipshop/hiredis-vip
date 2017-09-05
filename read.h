@@ -52,6 +52,7 @@
 #if 1 //shenzheng 2017-5-22 redis cluster
 #define REDIS_ERR_TIMEOUT 7
 #endif //shenzheng 2017-5-22 redis cluster
+#define REDIS_ERR_AUTH 8 //"ERR invalid password" or "ERR Client sent AUTH, but no password is set"
 
 
 #define REDIS_REPLY_STRING 1

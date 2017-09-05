@@ -123,6 +123,9 @@ endif
 hiredis-example: examples/example.c $(STLIBNAME)
 	$(CC) -o examples/$@ $(REAL_CFLAGS) $(REAL_LDFLAGS) -I. $< $(STLIBNAME)
 
+hiredis-example-cluster: examples/example-cluster.c $(STLIBNAME)
+	$(CC) -o examples/$@ $(REAL_CFLAGS) $(REAL_LDFLAGS) -I. $< $(STLIBNAME)
+
 examples: $(EXAMPLES)
 
 hiredis-test: test.o $(STLIBNAME)

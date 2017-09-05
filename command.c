@@ -1665,7 +1665,7 @@ void command_destroy(struct cmd *command)
 
     if(command->cmd != NULL)
     {
-        free(command->cmd);
+        hi_free(command->cmd);
     }
 
     if(command->errstr != NULL){

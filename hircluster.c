@@ -1298,6 +1298,17 @@ cluster_update_route_by_addr(redisClusterContext *cc,
         redisSetTimeout(c, *cc->timeout);
     }
 
+    if (cc->passwd != NULL) {
+        reply = redisCommand(c, "AUTH %s", cc->passwd);
+
+        if (reply->type != REDIS_REPLY_STATUS) {
+            __redisClusterSetError(cc, REDIS_ERR_AUTH, reply->str);
+            goto error;
+        }
+        freeReplyObject(reply);
+        reply = NULL;
+    }
+
     if(cc->flags & HIRCLUSTER_FLAG_ROUTE_USE_SLOTS){
         reply = redisCommand(c, REDIS_COMMAND_CLUSTER_SLOTS);
         if(reply == NULL){
@@ -2113,7 +2124,7 @@ static redisClusterContext *_redisClusterConnect(redisClusterContext *cc, const 
     return cc;
 }
 
-redisClusterContext *redisClusterConnect(const char *addrs, int flags)
+redisClusterContext *redisClusterConnect(const char *addrs, const char *passwd, int flags)
 {
     redisClusterContext *cc;
 
@@ -2129,12 +2140,13 @@ redisClusterContext *redisClusterConnect(const char *addrs, int flags)
     {
         cc->flags |= flags;
     }
-    
+
+    cc->passwd = (char*) passwd;
     return _redisClusterConnect(cc, addrs);
 }
 
 redisClusterContext *redisClusterConnectWithTimeout(
-    const char *addrs, const struct timeval tv, int flags)
+    const char *addrs, const char *passwd, const struct timeval tv, int flags)
 {
     redisClusterContext *cc;
 
@@ -2157,11 +2169,12 @@ redisClusterContext *redisClusterConnectWithTimeout(
     }
     
     memcpy(cc->connect_timeout, &tv, sizeof(struct timeval));
-    
+    cc->passwd = (char*) passwd;
+
     return _redisClusterConnect(cc, addrs);
 }
 
-redisClusterContext *redisClusterConnectNonBlock(const char *addrs, int flags) {
+redisClusterContext *redisClusterConnectNonBlock(const char *addrs, const char *passwd, int flags) {
 
     redisClusterContext *cc;
 
@@ -2177,7 +2190,7 @@ redisClusterContext *redisClusterConnectNonBlock(const char *addrs, int flags) {
     {
         cc->flags |= flags;
     }
-    
+    cc->passwd = (char*) passwd;
     return _redisClusterConnect(cc, addrs);
 }
 
@@ -2486,7 +2499,7 @@ redisContext *ctx_get_by_node(redisClusterContext *cc, cluster_node *node)
             }
         }
 
-        return c;
+        goto auth;
     }
 
     if(node->host == NULL || node->port <= 0)
@@ -2508,6 +2521,14 @@ redisContext *ctx_get_by_node(redisClusterContext *cc, cluster_node *node)
     }
 
     node->con = c;
+auth:
+    if (c != NULL && c->err == 0 && cc->passwd != NULL) {
+        redisReply *reply = redisCommand(c, "AUTH %s", cc->passwd);
+        if (reply->type != REDIS_REPLY_STATUS) {
+            __redisClusterSetError(cc, REDIS_ERR_AUTH, reply->str);
+        }
+        freeReplyObject(reply);
+    }
 
     return c;
 }
@@ -3779,7 +3800,7 @@ void *redisClusterCommandArgv(redisClusterContext *cc, int argc, const char **ar
         __redisClusterSetError(cc,REDIS_ERR_OOM,"Out of memory");
         return NULL;
     }
-	
+
     reply = redisClusterFormattedCommand(cc, cmd, len);
 
     free(cmd);
@@ -4421,12 +4442,12 @@ static redisAsyncContext *actx_get_after_update_route_by_slot(
     return ac;
 }
 
-redisClusterAsyncContext *redisClusterAsyncConnect(const char *addrs, int flags) {
+redisClusterAsyncContext *redisClusterAsyncConnect(const char *addrs, const char *passwd, int flags) {
 
     redisClusterContext *cc;
     redisClusterAsyncContext *acc;
 
-    cc = redisClusterConnectNonBlock(addrs, flags);
+    cc = redisClusterConnectNonBlock(addrs, passwd, flags);
     if(cc == NULL)
     {
         return NULL;
