@@ -13,6 +13,8 @@
 #include "command.h"
 #include "dict.c"
 
+#define REDIS_COMMAND_AUTH "AUTH %s"
+
 #define REDIS_COMMAND_CLUSTER_NODES "CLUSTER NODES"
 #define REDIS_COMMAND_CLUSTER_SLOTS "CLUSTER SLOTS"
 
@@ -207,6 +209,58 @@ static void __redisClusterSetError(redisClusterContext *cc, int type, const char
         assert(type == REDIS_ERR_IO);
         __redis_strerror_r(errno, cc->errstr, sizeof(cc->errstr));
     }
+}
+
+static int __redisClusterAuth(redisClusterContext *cc, redisContext *c)
+{
+    redisReply *reply = NULL;
+
+    if(cc == NULL || c == NULL)
+    {
+        return REDIS_ERR;
+    }
+
+    if(cc->passwd)
+    {
+        reply = redisCommand(c, REDIS_COMMAND_AUTH, cc->passwd);
+        if(reply == NULL)
+        {
+            if(c->err == REDIS_ERR_TIMEOUT)
+            {
+                __redisClusterSetError(cc, c->err,
+                    "Command(auth xxx) reply error(socket timeout)");
+            }
+            else
+            {
+                __redisClusterSetError(cc, REDIS_ERR_OTHER,
+                    "Command(auth xxx) reply error(NULL).");
+            }
+
+            return REDIS_ERR;
+        }
+        else if(reply->type != REDIS_REPLY_STATUS)
+        {
+            if(reply->type == REDIS_REPLY_ERROR)
+            {
+                __redisClusterSetError(cc, REDIS_ERR_OTHER,
+                    reply->str);
+            }
+            else
+            {
+                __redisClusterSetError(cc, REDIS_ERR_OTHER,
+                    "Command(auth xxx) reply error: type is not array.");
+            }
+            freeReplyObject(reply);
+
+            return REDIS_ERR;
+        }
+        else
+        {
+            freeReplyObject(reply);
+        }
+    }
+
+    return REDIS_OK;
 }
 
 static int cluster_reply_error_type(redisReply *reply)
@@ -1298,6 +1352,11 @@ cluster_update_route_by_addr(redisClusterContext *cc,
         redisSetTimeout(c, *cc->timeout);
     }
 
+    if (__redisClusterAuth(cc,c) != REDIS_OK)
+    {
+        goto error;
+    }
+
     if(cc->flags & HIRCLUSTER_FLAG_ROUTE_USE_SLOTS){
         reply = redisCommand(c, REDIS_COMMAND_CLUSTER_SLOTS);
         if(reply == NULL){
@@ -1544,6 +1603,11 @@ cluster_update_route_with_nodes_old(redisClusterContext *cc,
     else if(c->err)
     {
         __redisClusterSetError(cc,c->err,c->errstr);
+        goto error;
+    }
+
+    if (__redisClusterAuth(cc,c) != REDIS_OK)
+    {
         goto error;
     }
 
@@ -2017,6 +2081,7 @@ redisClusterContext *redisClusterContextInit(void) {
     cc->errstr[0] = '\0';
     cc->ip = NULL;
     cc->port = 0;
+    cc->passwd = NULL;
     cc->flags = 0;
     cc->connect_timeout = NULL;
     cc->timeout = NULL;
@@ -2046,6 +2111,12 @@ void redisClusterFree(redisClusterContext *cc) {
     {
         sdsfree(cc->ip);
         cc->ip = NULL;
+    }
+
+    if(cc->passwd)
+    {
+        sdsfree(cc->passwd);
+        cc->passwd = NULL;
     }
 
     if (cc->connect_timeout)
@@ -2455,6 +2526,24 @@ int redisClusterSetOptionMaxRedirect(redisClusterContext *cc, int max_redirect_c
     return REDIS_OK;
 }
 
+int redisClusterSetOptionPassword(redisClusterContext *cc, const char *passwd)
+{
+    if(cc == NULL || passwd == NULL)
+    {
+        return REDIS_ERR;
+    }
+
+    if(cc->passwd)
+    {
+        sdsfree(cc->passwd);
+        cc->passwd = NULL;
+    }
+
+    cc->passwd = sdsnew(passwd);
+
+    return REDIS_OK;
+}
+
 int redisClusterConnect2(redisClusterContext *cc)
 {
     
@@ -2484,6 +2573,11 @@ redisContext *ctx_get_by_node(redisClusterContext *cc, cluster_node *node)
             if (cc->timeout && c->err == 0) {
                 redisSetTimeout(c, *cc->timeout);
             }
+
+            if (__redisClusterAuth(cc,c) != REDIS_OK)
+            {
+                goto error;
+            }
         }
 
         return c;
@@ -2507,9 +2601,22 @@ redisContext *ctx_get_by_node(redisClusterContext *cc, cluster_node *node)
         redisSetTimeout(c, *cc->timeout);
     }
 
+    if (__redisClusterAuth(cc,c) != REDIS_OK)
+    {
+        goto error;
+    }
+
     node->con = c;
 
     return c;
+
+error:
+    if(c)
+    {
+        redisFree(c);
+    }
+
+    return NULL;
 }
 
 static cluster_node *node_get_by_slot(redisClusterContext *cc, uint32_t slot_num)
@@ -4245,6 +4352,91 @@ static void __redisClusterAsyncSetError(redisClusterAsyncContext *acc,
     }
 }
 
+static void __redisClusterAsyncAuthCallBack(redisAsyncContext *ac, void *reply_, void *acc_)
+{
+    redisReply *reply = (redisReply*)reply_;
+    redisClusterAsyncContext *acc = (redisClusterAsyncContext*)acc_;
+    if(reply == NULL)
+    {
+        if(ac->err == REDIS_ERR_TIMEOUT)
+        {
+            __redisClusterAsyncSetError(acc, ac->err,
+                "Command(auth xxx) reply error(socket timeout)");
+        }
+        else
+        {
+            __redisClusterAsyncSetError(acc, REDIS_ERR_OTHER,
+                "Command(auth xxx) reply error(NULL).");
+        }
+
+        if (acc->onAuth)
+        {
+            acc->onAuth(acc, ac, REDIS_ERR);
+        }
+    }
+    else if(reply->type != REDIS_REPLY_STATUS)
+    {
+        if (reply->type == REDIS_REPLY_ERROR)
+        {
+            __redisClusterAsyncSetError(acc, REDIS_ERR_OTHER,
+                reply->str);
+        }
+        else
+        {
+            __redisClusterAsyncSetError(acc, REDIS_ERR_OTHER,
+                "Command(auth xxx) reply error: type is not array.");
+        }
+        freeReplyObject(reply);
+
+        if (acc->onAuth)
+        {
+            acc->onAuth(acc, ac, REDIS_ERR);
+        }
+    }
+    else
+    {
+        freeReplyObject(reply);
+        acc->onAuth(acc, ac, REDIS_OK);
+    }
+}
+
+static int __redisClusterAsyncAuth(redisClusterAsyncContext *acc, redisAsyncContext *ac )
+{
+    int status;
+
+    if (acc == NULL || acc->cc == NULL || ac == NULL)
+    {
+        return REDIS_ERR;
+    }
+
+    if (acc->cc->passwd)
+    {
+        if(acc->err)
+        {
+            acc->err = 0;
+            memset(acc->errstr, '\0', strlen(acc->errstr));
+        }
+
+        if(acc->cc->err)
+        {
+            acc->cc->err = 0;
+            memset(acc->cc->errstr, '\0', strlen(acc->cc->errstr));
+        }
+
+        status = redisAsyncCommand(ac,
+                                   __redisClusterAsyncAuthCallBack,
+                                   acc,
+                                   REDIS_COMMAND_AUTH,
+                                   acc->cc->passwd);
+        if(status != REDIS_OK )
+        {
+            return REDIS_ERR;
+        }
+    }
+
+    return REDIS_OK;
+}
+
 static redisClusterAsyncContext *redisClusterAsyncInitialize(redisClusterContext *cc) {
     redisClusterAsyncContext *acc;
 
@@ -4266,6 +4458,8 @@ static redisClusterAsyncContext *redisClusterAsyncInitialize(redisClusterContext
 
     acc->onConnect = NULL;
     acc->onDisconnect = NULL;
+
+    acc->onAuth = NULL;
 
     return acc;
 }
@@ -4361,6 +4555,11 @@ redisAsyncContext * actx_get_by_node(redisClusterAsyncContext *acc,
     if(acc->onDisconnect)
     {
         redisAsyncSetDisconnectCallback(ac, acc->onDisconnect);
+    }
+
+    if (acc->cc && acc->cc->passwd )
+    {
+        __redisClusterAsyncAuth(acc, ac);
     }
 
     ac->data = node;

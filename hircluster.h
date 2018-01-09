@@ -76,6 +76,7 @@ typedef struct redisClusterContext {
     char errstr[128]; /* String representation of error when applicable */
     sds ip;
     int port;
+    sds passwd;
 
     int flags;
 
@@ -118,6 +119,7 @@ int redisClusterSetOptionRouteUseSlots(redisClusterContext *cc);
 int redisClusterSetOptionConnectTimeout(redisClusterContext *cc, const struct timeval tv);
 int redisClusterSetOptionTimeout(redisClusterContext *cc, const struct timeval tv);
 int redisClusterSetOptionMaxRedirect(redisClusterContext *cc,  int max_redirect_count);
+int redisClusterSetOptionPassword(redisClusterContext *cc, const char *passwd);
 
 int redisClusterConnect2(redisClusterContext *cc);
 
@@ -172,6 +174,11 @@ typedef struct redisClusterAsyncContext {
 
     /* Called when the first write event was received. */
     redisConnectCallback *onConnect;
+
+    /* Called when the connection received command "auth xxx"'s reply */
+    void(*onAuth)(struct redisClusterAsyncContext *acc,
+                  struct redisAsyncContext *ac,
+                  int status );
 
 } redisClusterAsyncContext;
 
