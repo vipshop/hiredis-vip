@@ -47,3 +47,6 @@ install_files(
 )
 
 install_targets(/lib ${LIB_NAME})
+
+#examples
+add_subdirectory(examples)

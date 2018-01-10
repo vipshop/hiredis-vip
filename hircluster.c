@@ -24,6 +24,9 @@
 #define REDIS_PROTOCOL_ASKING "*1\r\n$6\r\nASKING\r\n"
 
 #define IP_PORT_SEPARATOR ":"
+#define IP_PORT_INNER_PORT_SEPARATOR "@"
+
+#define CLUSTER_PASSWD_SEPARATOR "@"
 
 #define CLUSTER_ADDRESS_SEPARATOR ","
 
@@ -587,6 +590,8 @@ static cluster_node *node_get_with_nodes(
     redisClusterContext *cc,
     sds *node_infos, int info_count, uint8_t role)
 {
+    sds *ip_port_inner_port = NULL;
+    int count_ip_port_inner_port = 0;
     sds *ip_port = NULL;
     int count_ip_port = 0;
     cluster_node *node;
@@ -619,11 +624,21 @@ static cluster_node *node_get_with_nodes(
 
         node->slots->free = listClusterSlotDestructor;
     }
-    
+
+    /* after redis 4.0, the ip_port format is ip:port@inner_port */
+    ip_port_inner_port = sdssplitlen(node_infos[1], sdslen(node_infos[1]),
+        IP_PORT_INNER_PORT_SEPARATOR, strlen(IP_PORT_INNER_PORT_SEPARATOR), &count_ip_port_inner_port);
+    if (ip_port_inner_port == NULL || count_ip_port_inner_port <= 0)
+    {
+        __redisClusterSetError(cc,REDIS_ERR_OTHER,
+            "split ip port and inner port error");
+        goto error;
+    }
+
     node->name = node_infos[0]; 
-    node->addr = node_infos[1];
-    
-    ip_port = sdssplitlen(node_infos[1], sdslen(node_infos[1]), 
+    node->addr = ip_port_inner_port[0];
+
+    ip_port = sdssplitlen(ip_port_inner_port[0], sdslen(ip_port_inner_port[0]), 
         IP_PORT_SEPARATOR, strlen(IP_PORT_SEPARATOR), &count_ip_port);
     if(ip_port == NULL || count_ip_port != 2)
     {
@@ -635,15 +650,22 @@ static cluster_node *node_get_with_nodes(
     node->port = hi_atoi(ip_port[1], sdslen(ip_port[1]));
     node->role = role;
 
+    ip_port_inner_port[0] = NULL;
+    sdsfreesplitres(ip_port_inner_port, count_ip_port_inner_port);
     sdsfree(ip_port[1]);
     free(ip_port);
 
     node_infos[0] = NULL;
-    node_infos[1] = NULL;
+    /* node_infos[1] = NULL; */
     
     return node;
 
 error:
+    if(ip_port_inner_port != NULL)
+    {
+        sdsfreesplitres(ip_port_inner_port, count_ip_port_inner_port);
+    }
+
     if(ip_port != NULL)
     {
         sdsfreesplitres(ip_port, count_ip_port);
@@ -706,7 +728,7 @@ static void cluster_nodes_swap_ctx(dict *nodes_f, dict *nodes_t)
 static int
 cluster_slot_start_cmp(const void *t1, const void *t2)
 {
-    const cluster_slot **s1 = t1, **s2 = t2;
+    const cluster_slot **s1 = (const cluster_slot**)t1, **s2 = (const cluster_slot**)t2;
 
     return (*s1)->start > (*s2)->start?1:-1;
 }
@@ -2339,6 +2361,8 @@ int redisClusterSetOptionAddNode(redisClusterContext *cc, const char *addr)
 int redisClusterSetOptionAddNodes(redisClusterContext *cc, const char *addrs)
 {
     int ret;
+    sds *passwd = NULL;
+    int passwd_count = 0;
     sds *address = NULL;
     int address_count = 0;
     int i;
@@ -2348,11 +2372,44 @@ int redisClusterSetOptionAddNodes(redisClusterContext *cc, const char *addrs)
         return REDIS_ERR;
     }
 
+    passwd = sdssplitlen(addrs, strlen(addrs), CLUSTER_PASSWD_SEPARATOR,
+        strlen(CLUSTER_PASSWD_SEPARATOR), &passwd_count);
+    if(passwd == NULL || passwd_count < 1 || passwd_count > 2)
+    {
+        if (passwd != NULL)
+        {
+            sdsfreesplitres(passwd, passwd_count);
+        }
+        __redisClusterSetError(cc,REDIS_ERR_OTHER,"servers address is error(correct is like: [passwd@]127.0.0.1:1234,127.0.0.2:5678)");
+        return REDIS_ERR;
+    }
+
+    /* exists authentication password */
+    if(passwd_count == 2)
+    {
+        ret = redisClusterSetOptionPassword(cc, passwd[0]);
+        if (ret != REDIS_OK)
+        {
+            sdsfreesplitres(passwd, passwd_count);
+            return REDIS_ERR;
+        }
+
+        /* filter authentication password and CLUSTER_PASSWD_SEPARATOR */
+        addrs += strlen(passwd[0]);
+        addrs += strlen(CLUSTER_PASSWD_SEPARATOR);
+    }
+
+    sdsfreesplitres(passwd, passwd_count);
+
     address = sdssplitlen(addrs, strlen(addrs), CLUSTER_ADDRESS_SEPARATOR, 
         strlen(CLUSTER_ADDRESS_SEPARATOR), &address_count);
     if(address == NULL || address_count <= 0)
     {
-        __redisClusterSetError(cc,REDIS_ERR_OTHER,"servers address is error(correct is like: 127.0.0.1:1234,127.0.0.2:5678)");
+        if (address != NULL)
+        {
+            sdsfreesplitres(address, address_count);
+        }
+        __redisClusterSetError(cc,REDIS_ERR_OTHER,"servers address is error(correct is like: [passwd@]127.0.0.1:1234,127.0.0.2:5678)");
         return REDIS_ERR;
     }
 
