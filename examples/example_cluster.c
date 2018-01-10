@@ -12,9 +12,10 @@ int main(int argc, char **argv) {
     const char *address = (argc > 1) ? argv[1] : "127.0.0.1:6379";
     int way = (argc > 2) ? atoi(argv[2]) : 0;
     const char *passwd = (argc > 3) ? argv[3] : NULL;
+    int flag = (argc > 4) ? atoi(argv[4]) : 0;
 
     struct timeval timeout = { 1, 500000 }; // 1.5 seconds
-    if (way)
+    if(way == 1)
     {
         cc = redisClusterContextInit();
         if (cc)
@@ -33,6 +34,46 @@ int main(int argc, char **argv) {
                 redisClusterSetOptionPassword(cc, passwd);
             }
 
+            if(flag == 2)
+            {
+                redisClusterSetOptionParseSlaves(cc);
+            }
+
+            if(flag == 3)
+            {
+                redisClusterSetOptionParseOpenSlots(cc);
+            }
+
+            if(flag == 4)
+            {
+                redisClusterSetOptionRouteUseSlots(cc);
+            }
+
+            if(flag == 5)
+            {
+                redisClusterSetOptionParseSlaves(cc);
+                redisClusterSetOptionParseOpenSlots(cc);
+            }
+
+            if(flag == 6)
+            {
+                redisClusterSetOptionParseSlaves(cc);
+                redisClusterSetOptionRouteUseSlots(cc);
+            }
+
+            if(flag == 7)
+            {
+                redisClusterSetOptionParseOpenSlots(cc);
+                redisClusterSetOptionRouteUseSlots(cc);
+            }
+
+            if(flag == 8)
+            {
+                redisClusterSetOptionParseSlaves(cc);
+                redisClusterSetOptionParseOpenSlots(cc);
+                redisClusterSetOptionRouteUseSlots(cc);
+            }
+
             ret = redisClusterConnect2(cc);
             if (ret != REDIS_OK)
             {
@@ -44,6 +85,13 @@ int main(int argc, char **argv) {
     }
     else
     {
+        if(way == 2) flag = HIRCLUSTER_FLAG_ADD_SLAVE;
+        if(way == 3) flag = HIRCLUSTER_FLAG_ADD_OPENSLOT;
+        if(way == 4) flag = HIRCLUSTER_FLAG_ROUTE_USE_SLOTS;
+        if(way == 5) flag = HIRCLUSTER_FLAG_ADD_SLAVE | HIRCLUSTER_FLAG_ADD_OPENSLOT;
+        if(way == 6) flag = HIRCLUSTER_FLAG_ADD_SLAVE | HIRCLUSTER_FLAG_ROUTE_USE_SLOTS;
+        if(way == 7) flag = HIRCLUSTER_FLAG_ADD_OPENSLOT | HIRCLUSTER_FLAG_ROUTE_USE_SLOTS;
+        if(way == 8) flag = HIRCLUSTER_FLAG_ADD_SLAVE | HIRCLUSTER_FLAG_ADD_OPENSLOT | HIRCLUSTER_FLAG_ROUTE_USE_SLOTS;
         cc = redisClusterConnectWithTimeout(address, timeout, 0);
     }
     
