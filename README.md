@@ -305,18 +305,20 @@ See the `adapters/` directory for bindings to *ae* and *libevent*.
 Support three ReJson commands:
 
 * **`JSON.GET <key> <path>`**:
+`
 	JSON.GET foo .
 	JSON.GET foo .int
 	JSON.GET foo .str
+`
 
-JSON.SET <key> <path> <value>, for example:
+* **`JSON.SET <key> <path> <value>`**:
 ```	
 	JSON.SET foo . {}
 	JSON.SET foo .int 123
 	JSON.SET foo .str "\"123\""
 ```
 
-JSON.DEL <key> <path>, for example:
+* **`JSON.DEL <key> <path>`**:
 ```	
 	JSON.DEL foo .
 	JSON.DEL foo .int
