@@ -108,6 +108,10 @@ redis_arg1(struct cmd *r)
     case CMD_REQ_REDIS_ZRANK:
     case CMD_REQ_REDIS_ZREVRANK:
     case CMD_REQ_REDIS_ZSCORE:
+
+    /* support rejson */
+    case CMD_REQ_REDIS_JSON_GET:
+    case CMD_REQ_REDIS_JSON_DEL:
         return 1;
 
     default:
@@ -151,6 +155,9 @@ redis_arg2(struct cmd *r)
     case CMD_REQ_REDIS_ZREMRANGEBYSCORE:
 
     case CMD_REQ_REDIS_RESTORE:
+
+    /* support rejson */
+    case CMD_REQ_REDIS_JSON_SET:
         return 1;
 
     default:
@@ -901,6 +908,21 @@ redis_parse_cmd(struct cmd *r)
 
                 if (str8icmp(m, 'z', 'r', 'e', 'v', 'r', 'a', 'n', 'k')) {
                     r->type = CMD_REQ_REDIS_ZREVRANK;
+                    break;
+                }
+
+                if (str8icmp(m, 'j', 's', 'o', 'n', '.', 'g', 'e', 't')) {
+                    r->type = CMD_REQ_REDIS_JSON_GET;
+                    break;
+                }
+
+                if (str8icmp(m, 'j', 's', 'o', 'n', '.', 's', 'e', 't')) {
+                    r->type = CMD_REQ_REDIS_JSON_SET;
+                    break;
+                }
+
+                if (str8icmp(m, 'j', 's', 'o', 'n', '.', 'd', 'e', 'l')) {
+                    r->type = CMD_REQ_REDIS_JSON_DEL;
                     break;
                 }
 

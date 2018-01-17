@@ -110,6 +110,37 @@ int main(int argc, char **argv) {
     //printf("PING: %s\n", reply->str);
     //freeReplyObject(reply);
 
+    /* support rejson */
+    reply = redisClusterCommand(cc, "JSON.SET %s . %s", "json", "{}");
+    printf("JSON.SET: %s\n", reply->str);
+    freeReplyObject(reply);
+
+    reply = redisClusterCommand(cc, "JSON.GET %s .", "json");
+    printf("JSON.GET json: %s\n", reply->str);
+    freeReplyObject(reply);
+
+    reply = redisClusterCommand(cc, "JSON.SET %s .%s %s", "json", "foo", "\"hello world\"");
+    printf("JSON.SET: %s\n", reply->str);
+    freeReplyObject(reply);
+
+    reply = redisClusterCommand(cc, "JSON.GET %s .", "json");
+    printf("JSON.GET json: %s\n", reply->str);
+    freeReplyObject(reply);
+
+    reply = redisClusterCommand(cc, "JSON.GET %s .%s", "json", "foo");
+    printf("JSON.GET json.foo: %s\n", reply->str);
+    freeReplyObject(reply);
+
+    reply = redisClusterCommand(cc, "JSON.DEL %s .%s", "json", "foo");
+    freeReplyObject(reply);
+
+    reply = redisClusterCommand(cc, "JSON.GET %s .", "json");
+    printf("JSON.GET json: %s\n", reply->str);
+    freeReplyObject(reply);
+
+    reply = redisClusterCommand(cc, "JSON.DEL %s .", "json");
+    freeReplyObject(reply);
+
     /* Set a key */
     reply = redisClusterCommand(cc,"SET %s %s", "foo", "hello world");
     printf("SET: %s\n", reply->str);
