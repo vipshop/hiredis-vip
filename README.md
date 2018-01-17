@@ -301,6 +301,21 @@ callbacks have been executed. After this, the disconnection callback is executed
 There are a few hooks that need to be set on the cluster context object after it is created.
 See the `adapters/` directory for bindings to *ae* and *libevent*.
 
+### Support ReJson
+Support three ReJson commands:
+JSON.GET <key> <path>, for example:
+	JSON.GET foo .
+	JSON.GET foo .int
+	JSON.GET foo .str
+JSON.SET <key> <path> <value>, for example:
+	JSON.SET foo . {}
+	JSON.SET foo .int 123
+	JSON.SET foo .str "\"123\""
+JSON.DEL <key> <path>, for example:
+	JSON.DEL foo .
+	JSON.DEL foo .int
+	JSON.DEL foo .str
+
 ## AUTHORS
 
 Hiredis-vip was maintained and used at vipshop(https://github.com/vipshop).
