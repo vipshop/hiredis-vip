@@ -304,12 +304,10 @@ See the `adapters/` directory for bindings to *ae* and *libevent*.
 ### Support ReJson
 Support three ReJson commands:
 
-JSON.GET <key> <path>, for example:
-```
+* **`JSON.GET <key> <path>`**:
 	JSON.GET foo .
 	JSON.GET foo .int
 	JSON.GET foo .str
-```
 
 JSON.SET <key> <path> <value>, for example:
 ```	
