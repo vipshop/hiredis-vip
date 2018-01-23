@@ -138,7 +138,7 @@ int main(int argc, char **argv) {
     printf("JSON.GET json: %s\n", reply->str);
     freeReplyObject(reply);
 
-    reply = redisClusterCommand(cc, "JSON.DEL %s", "json");
+    reply = redisClusterCommand(cc, "JSON.DEL %s .", "json");
     freeReplyObject(reply);
 
     /* Set a key */
