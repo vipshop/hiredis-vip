@@ -115,7 +115,7 @@ int main(int argc, char **argv) {
     printf("JSON.SET: %s\n", reply->str);
     freeReplyObject(reply);
 
-    reply = redisClusterCommand(cc, "JSON.GET %s .", "json");
+    reply = redisClusterCommand(cc, "JSON.GET %s", "json");
     printf("JSON.GET json: %s\n", reply->str);
     freeReplyObject(reply);
 
@@ -123,7 +123,7 @@ int main(int argc, char **argv) {
     printf("JSON.SET: %s\n", reply->str);
     freeReplyObject(reply);
 
-    reply = redisClusterCommand(cc, "JSON.GET %s .", "json");
+    reply = redisClusterCommand(cc, "JSON.GET %s", "json");
     printf("JSON.GET json: %s\n", reply->str);
     freeReplyObject(reply);
 
@@ -134,11 +134,11 @@ int main(int argc, char **argv) {
     reply = redisClusterCommand(cc, "JSON.DEL %s .%s", "json", "foo");
     freeReplyObject(reply);
 
-    reply = redisClusterCommand(cc, "JSON.GET %s .", "json");
+    reply = redisClusterCommand(cc, "JSON.GET %s", "json");
     printf("JSON.GET json: %s\n", reply->str);
     freeReplyObject(reply);
 
-    reply = redisClusterCommand(cc, "JSON.DEL %s .", "json");
+    reply = redisClusterCommand(cc, "JSON.DEL %s", "json");
     freeReplyObject(reply);
 
     /* Set a key */
