@@ -110,6 +110,34 @@ int main(int argc, char **argv) {
     //printf("PING: %s\n", reply->str);
     //freeReplyObject(reply);
 
+    /* del */
+    reply = redisClusterCommand(cc, "del foo");
+    printf( "del foo: %lld\n", reply->integer );
+    freeReplyObject(reply);
+
+    /* hset */
+    reply = redisClusterCommand(cc, "hset foo abc 1");
+    printf( "hset foo abc 1: %lld\n", reply->integer );
+    freeReplyObject(reply);
+
+    /* eval */
+    const char *cmds[] =
+    {
+        "eval",
+        "return redis.call('hget',KEYS[1],ARGV[1])",
+        "1",
+        "foo",
+        "abc"
+    };
+    reply = redisClusterCommandArgv(cc, sizeof(cmds)/sizeof(const char*), cmds, NULL );
+    printf( "hget foo abc: %s\n", reply->str );
+    freeReplyObject(reply);
+
+    /* del */
+    reply = redisClusterCommand(cc, "del foo");
+    printf( "del foo: %lld\n", reply->integer );
+    freeReplyObject(reply);
+
     /* support rejson */
     reply = redisClusterCommand(cc, "JSON.SET %s . %s", "json", "{}");
     printf("JSON.SET: %s\n", reply->str);
