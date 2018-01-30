@@ -2617,6 +2617,18 @@ int redisClusterSetOptionPassword(redisClusterContext *cc, const char *passwd)
     return REDIS_OK;
 }
 
+int redisClusterSetAuthCallback(redisClusterContext *cc, void(*fn)(void*,void*,int) )
+{
+    if(cc == NULL)
+    {
+        return REDIS_ERR;
+    }
+
+    cc->onAuth = fn;
+
+    return REDIS_OK;
+}
+
 int redisClusterConnect2(redisClusterContext *cc)
 {
     
@@ -4734,6 +4746,15 @@ int redisClusterAsyncSetDisconnectCallback(
     if (acc->onDisconnect == NULL) {
         acc->onDisconnect = fn;
         return REDIS_OK;
+    }
+    return REDIS_ERR;
+}
+
+int redisClusterAsyncSetAuthCallback(
+    redisClusterAsyncContext *acc, void(*fn)(void*,void*,int))
+{
+    if (acc == NULL) {
+        return redisClusterSetAuthCallback(acc->cc, fn);
     }
     return REDIS_ERR;
 }
