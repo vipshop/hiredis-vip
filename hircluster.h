@@ -99,6 +99,11 @@ typedef struct redisClusterContext {
 
     int need_update_route;
     int64_t update_route_time;
+
+    /* Called when the connection received command "auth xxx"'s reply */
+    void(*onAuth)(void *cctx, /* redisClusterContext or redisClusterAsyncContext */
+                  void *ctx,  /* redisContext or redisAsyncContext */
+                  int   status );
 } redisClusterContext;
 
 redisClusterContext *redisClusterConnect(const char *addrs, int flags);
@@ -174,12 +179,6 @@ typedef struct redisClusterAsyncContext {
 
     /* Called when the first write event was received. */
     redisConnectCallback *onConnect;
-
-    /* Called when the connection received command "auth xxx"'s reply */
-    void(*onAuth)(struct redisClusterAsyncContext *acc,
-                  struct redisAsyncContext *ac,
-                  int status );
-
 } redisClusterAsyncContext;
 
 redisClusterAsyncContext *redisClusterAsyncConnect(const char *addrs, int flags);

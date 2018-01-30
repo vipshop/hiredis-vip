@@ -239,6 +239,11 @@ static int __redisClusterAuth(redisClusterContext *cc, redisContext *c)
                     "Command(auth xxx) reply error(NULL).");
             }
 
+            if(cc->onAuth)
+            {
+                cc->onAuth(cc, c, REDIS_ERR);
+            }
+
             return REDIS_ERR;
         }
         else if(reply->type != REDIS_REPLY_STATUS)
@@ -255,11 +260,21 @@ static int __redisClusterAuth(redisClusterContext *cc, redisContext *c)
             }
             freeReplyObject(reply);
 
+            if(cc->onAuth)
+            {
+                cc->onAuth(cc, c, REDIS_ERR);
+            }
+
             return REDIS_ERR;
         }
         else
         {
             freeReplyObject(reply);
+
+            if(cc->onAuth)
+            {
+                cc->onAuth(cc, c, REDIS_OK);
+            }
         }
     }
 
@@ -2120,6 +2135,7 @@ redisClusterContext *redisClusterContextInit(void) {
     memset(cc->table, 0, REDIS_CLUSTER_SLOTS*sizeof(cluster_node *));
 
     cc->flags |= REDIS_BLOCK;
+    cc->onAuth = NULL;
     
     return cc;
 }
@@ -4426,9 +4442,9 @@ static void __redisClusterAsyncAuthCallBack(redisAsyncContext *ac, void *reply_,
                 "Command(auth xxx) reply error(NULL).");
         }
 
-        if (acc->onAuth)
+        if(acc->cc && acc->cc->onAuth)
         {
-            acc->onAuth(acc, ac, REDIS_ERR);
+            acc->cc->onAuth(acc, ac, REDIS_ERR);
         }
     }
     else if(reply->type != REDIS_REPLY_STATUS)
@@ -4445,15 +4461,19 @@ static void __redisClusterAsyncAuthCallBack(redisAsyncContext *ac, void *reply_,
         }
         freeReplyObject(reply);
 
-        if (acc->onAuth)
+        if(acc->cc && acc->cc->onAuth)
         {
-            acc->onAuth(acc, ac, REDIS_ERR);
+            acc->cc->onAuth(acc, ac, REDIS_ERR);
         }
     }
     else
     {
         freeReplyObject(reply);
-        acc->onAuth(acc, ac, REDIS_OK);
+
+        if(acc->cc && acc->cc->onAuth)
+        {
+            acc->cc->onAuth(acc, ac, REDIS_OK);
+        }
     }
 }
 
@@ -4515,8 +4535,6 @@ static redisClusterAsyncContext *redisClusterAsyncInitialize(redisClusterContext
 
     acc->onConnect = NULL;
     acc->onDisconnect = NULL;
-
-    acc->onAuth = NULL;
 
     return acc;
 }
