@@ -99,11 +99,6 @@ typedef struct redisClusterContext {
 
     int need_update_route;
     int64_t update_route_time;
-
-    /* Called when the connection received command "auth xxx"'s reply */
-    void(*onAuth)(void *cctx, /* redisClusterContext or redisClusterAsyncContext */
-                  void *ctx,  /* redisContext or redisAsyncContext */
-                  int   status );
 } redisClusterContext;
 
 redisClusterContext *redisClusterConnect(const char *addrs, int flags);
@@ -125,7 +120,6 @@ int redisClusterSetOptionConnectTimeout(redisClusterContext *cc, const struct ti
 int redisClusterSetOptionTimeout(redisClusterContext *cc, const struct timeval tv);
 int redisClusterSetOptionMaxRedirect(redisClusterContext *cc,  int max_redirect_count);
 int redisClusterSetOptionPassword(redisClusterContext *cc, const char *passwd);
-int redisClusterSetAuthCallback(redisClusterContext *cc, void(*fn)(void*,void*,int));
 
 int redisClusterConnect2(redisClusterContext *cc);
 
@@ -159,6 +153,8 @@ typedef int (adapterAttachFn)(redisAsyncContext*, void*);
 
 typedef void (redisClusterCallbackFn)(struct redisClusterAsyncContext*, void*, void*);
 
+typedef void (redisAuthenticateCallback)(struct redisClusterAsyncContext*, struct redisAsyncContext*, int);
+
 /* Context for an async connection to Redis */
 typedef struct redisClusterAsyncContext {
     
@@ -180,12 +176,15 @@ typedef struct redisClusterAsyncContext {
 
     /* Called when the first write event was received. */
     redisConnectCallback *onConnect;
+
+    /* Called when the connection received command "auth xxx"'s reply */
+    redisAuthenticateCallback *onAuthenticate;
 } redisClusterAsyncContext;
 
 redisClusterAsyncContext *redisClusterAsyncConnect(const char *addrs, int flags);
 int redisClusterAsyncSetConnectCallback(redisClusterAsyncContext *acc, redisConnectCallback *fn);
 int redisClusterAsyncSetDisconnectCallback(redisClusterAsyncContext *acc, redisDisconnectCallback *fn);
-int redisClusterAsyncSetAuthCallback(redisClusterAsyncContext *acc, void(*fn)(void*,void*,int));
+int redisClusterAsyncSetAuthCallback(redisClusterAsyncContext *acc, redisAuthenticateCallback *fn);
 int redisClusterAsyncFormattedCommand(redisClusterAsyncContext *acc, redisClusterCallbackFn *fn, void *privdata, char *cmd, int len);
 int redisClustervAsyncCommand(redisClusterAsyncContext *acc, redisClusterCallbackFn *fn, void *privdata, const char *format, va_list ap);
 int redisClusterAsyncCommand(redisClusterAsyncContext *acc, redisClusterCallbackFn *fn, void *privdata, const char *format, ...);
