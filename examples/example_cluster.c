@@ -227,6 +227,11 @@ int main(int argc, char **argv) {
     printf("JSON.MGET: %s\n", reply->str);
     freeReplyObject(reply);
 
+    redisClusterAppendCommand(cc, "JSON.MGET json foo .");
+    redisClusterGetReply(cc, &reply);
+    printf("JSON.MGET: %s\n", reply->str);
+    freeReplyObject(reply);
+
     reply = redisClusterCommand(cc, "JSON.GET %s", "json");
     printf("JSON.GET json: %s\n", reply->str);
     freeReplyObject(reply);
