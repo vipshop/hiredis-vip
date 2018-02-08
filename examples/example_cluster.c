@@ -215,11 +215,15 @@ int main(int argc, char **argv) {
     printf("JSON.OBJLEN: %s\n", reply->str);
     freeReplyObject(reply);
 
+    reply = redisClusterCommand(cc, "JSON.SET foo . {}" );
+    printf("JSON.SET: %s\n", reply->str);
+    freeReplyObject(reply);
+
     reply = redisClusterCommand(cc, "JSON.MGET json ." );
     printf("JSON.MGET: %s\n", reply->str);
     freeReplyObject(reply);
 
-    reply = redisClusterCommand(cc, "JSON.MGET json json ." );
+    reply = redisClusterCommand(cc, "JSON.MGET json foo ." );
     printf("JSON.MGET: %s\n", reply->str);
     freeReplyObject(reply);
 

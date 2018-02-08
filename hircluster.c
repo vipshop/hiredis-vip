@@ -3669,7 +3669,8 @@ static void *command_post_fragment(redisClusterContext *cc,
             return reply;
         }
 
-        if (command->type == CMD_REQ_REDIS_MGET) {
+        if (command->type == CMD_REQ_REDIS_MGET ||
+            command->type == CMD_REQ_REDIS_JSON_MGET) {
             if(reply->type != REDIS_REPLY_ARRAY)
             {
                 __redisClusterSetError(cc,REDIS_ERR_OTHER,"reply type is error(here only can be array)");
@@ -3703,7 +3704,8 @@ static void *command_post_fragment(redisClusterContext *cc,
         return NULL;
     }
 
-    if (command->type == CMD_REQ_REDIS_MGET) {
+    if (command->type == CMD_REQ_REDIS_MGET ||
+        command->type == CMD_REQ_REDIS_JSON_MGET) {
         int i;
         uint32_t key_count;
 
