@@ -147,8 +147,80 @@ int main(int argc, char **argv) {
     printf("JSON.GET json: %s\n", reply->str);
     freeReplyObject(reply);
 
-    reply = redisClusterCommand(cc, "JSON.SET %s .%s %s", "json", "foo", "\"hello world\"");
+    reply = redisClusterCommand(cc, "JSON.SET %s .%s %s", "json", "foo", "1");
     printf("JSON.SET: %s\n", reply->str);
+    freeReplyObject(reply);
+
+    reply = redisClusterCommand(cc, "JSON.SET json .arr []" );
+    printf("JSON.SET: %s\n", reply->str);
+    freeReplyObject(reply);
+
+    reply = redisClusterCommand(cc, "JSON.TYPE json ." );
+    printf("JSON.TYPE: %s\n", reply->str);
+    freeReplyObject(reply);
+
+    reply = redisClusterCommand(cc, "JSON.TYPE json .arr" );
+    printf("JSON.TYPE: %s\n", reply->str);
+    freeReplyObject(reply);
+
+    reply = redisClusterCommand(cc, "JSON.NUMINCRBY json .foo 1" );
+    printf("JSON.NUMINCRBY: %s\n", reply->str);
+    freeReplyObject(reply);
+
+    reply = redisClusterCommand(cc, "JSON.ARRAPPEND json .arr 1" );
+    printf("JSON.ARRAPPEND: %s\n", reply->str);
+    freeReplyObject(reply);
+
+    reply = redisClusterCommand(cc, "JSON.NUMMULTBY json .arr[0] 2" );
+    printf("JSON.NUMMULTBY: %s\n", reply->str);
+    freeReplyObject(reply);
+
+    reply = redisClusterCommand(cc, "JSON.SET json .str \"\"");
+    printf("JSON.SET: %s\n", reply->str);
+    freeReplyObject(reply);
+
+    reply = redisClusterCommand(cc, "JSON.STRAPPEND json .str \"1\"");
+    printf("JSON.STRAPPEND: %s\n", reply->str);
+    freeReplyObject(reply);
+
+    reply = redisClusterCommand(cc, "JSON.STRLEN json .str");
+    printf("JSON.STRLEN: %s\n", reply->str);
+    freeReplyObject(reply);
+
+    reply = redisClusterCommand(cc, "JSON.ARRINDEX json .arr 2" );
+    printf("JSON.ARRINDEX: %s\n", reply->str);
+    freeReplyObject(reply);
+
+    reply = redisClusterCommand(cc, "JSON.ARRINSERT json .arr 0 1" );
+    printf("JSON.ARRINSERT: %s\n", reply->str);
+    freeReplyObject(reply);
+
+    reply = redisClusterCommand(cc, "JSON.ARRLEN json .arr" );
+    printf("JSON.ARRLEN: %s\n", reply->str);
+    freeReplyObject(reply);
+
+    reply = redisClusterCommand(cc, "JSON.ARRPOP json .arr" );
+    printf("JSON.ARRPOP: %s\n", reply->str);
+    freeReplyObject(reply);
+
+    reply = redisClusterCommand(cc, "JSON.ARRTRIM json .arr 1 1" );
+    printf("JSON.ARRTRIM: %s\n", reply->str);
+    freeReplyObject(reply);
+
+    reply = redisClusterCommand(cc, "JSON.OBJKEYS json ." );
+    printf("JSON.OBJKEYS: %s\n", reply->str);
+    freeReplyObject(reply);
+
+    reply = redisClusterCommand(cc, "JSON.OBJLEN json ." );
+    printf("JSON.OBJLEN: %s\n", reply->str);
+    freeReplyObject(reply);
+
+    reply = redisClusterCommand(cc, "JSON.MGET json ." );
+    printf("JSON.MGET: %s\n", reply->str);
+    freeReplyObject(reply);
+
+    reply = redisClusterCommand(cc, "JSON.MGET json json ." );
+    printf("JSON.MGET: %s\n", reply->str);
     freeReplyObject(reply);
 
     reply = redisClusterCommand(cc, "JSON.GET %s", "json");

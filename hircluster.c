@@ -3318,6 +3318,7 @@ static int command_pre_fragment(redisClusterContext *cc,
     uint32_t i, j;
     uint32_t idx;
     uint32_t key_len;
+    uint32_t path_len;
     int slot_num = -1;
     struct cmd *sub_command;
     struct cmd **sub_commands = NULL;
@@ -3461,6 +3462,67 @@ static int command_pre_fragment(redisClusterContext *cc,
                 memcpy(sub_command->cmd + idx, CRLF, CRLF_LEN);
                 idx += CRLF_LEN;
             }
+        } else if (command->type == CMD_REQ_REDIS_JSON_MGET) {
+            //"*%d\r\n$9\r\njson.mget\r\n"
+            
+            /* path */
+            path_len = command->path_end - command->path_start;
+            sub_command->clen += path_len + uint_len(path_len);
+            sub_command->narg ++;
+
+            sub_command->clen += 5*sub_command->narg;
+
+            sub_command->narg ++;
+
+            hi_itoa(num_str, sub_command->narg);
+            num_str_len = (uint8_t)(strlen(num_str));
+
+            sub_command->clen += 18 + num_str_len;
+
+            sub_command->cmd = hi_zalloc(sub_command->clen * sizeof(*sub_command->cmd));
+            if(sub_command->cmd == NULL)
+            {
+                __redisClusterSetError(cc,REDIS_ERR_OOM,"Out of memory");
+                slot_num = -1;
+                goto done;
+            }
+
+            sub_command->cmd[idx++] = '*';
+            memcpy(sub_command->cmd + idx, num_str, num_str_len);
+            idx += num_str_len;
+            memcpy(sub_command->cmd + idx, "\r\n$9\r\njson.mget\r\n", 17);
+            idx += 17;
+            
+            for(j = 0; j < hiarray_n(sub_command->keys); j ++)
+            {
+                kp = hiarray_get(sub_command->keys, j);
+                key_len = (uint32_t)(kp->end - kp->start);
+                hi_itoa(num_str, key_len);
+                num_str_len = strlen(num_str);
+
+                sub_command->cmd[idx++] = '$';
+                memcpy(sub_command->cmd + idx, num_str, num_str_len);
+                idx += num_str_len;
+                memcpy(sub_command->cmd + idx, CRLF, CRLF_LEN);
+                idx += CRLF_LEN;
+                memcpy(sub_command->cmd + idx, kp->start, key_len);
+                idx += key_len;
+                memcpy(sub_command->cmd + idx, CRLF, CRLF_LEN);
+                idx += CRLF_LEN;
+            }
+
+            /* path */
+            hi_itoa(num_str, path_len);
+            num_str_len = strlen(num_str);
+            sub_command->cmd[idx++] = '$';
+            memcpy(sub_command->cmd + idx, num_str, num_str_len);
+            idx += num_str_len;
+            memcpy(sub_command->cmd + idx, CRLF, CRLF_LEN);
+            idx += CRLF_LEN;
+            memcpy(sub_command->cmd + idx, command->path_start, path_len);
+            idx += key_len;
+            memcpy(sub_command->cmd + idx, CRLF, CRLF_LEN);
+            idx += CRLF_LEN;
         } else if (command->type == CMD_REQ_REDIS_DEL) {
             //"*%d\r\n$3\r\ndel\r\n"
             

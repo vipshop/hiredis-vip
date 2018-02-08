@@ -151,6 +151,10 @@ redis_arg2(struct cmd *r)
     case CMD_REQ_REDIS_ZREMRANGEBYSCORE:
 
     case CMD_REQ_REDIS_RESTORE:
+
+    /* support rejson */
+    case CMD_REQ_REDIS_JSON_NUMINCRBY:
+    case CMD_REQ_REDIS_JSON_NUMMULTBY:
         return 1;
 
     default:
@@ -169,6 +173,9 @@ redis_arg3(struct cmd *r)
 {
     switch (r->type) {
     case CMD_REQ_REDIS_LINSERT:
+
+    /* support rejson */
+    case CMD_REQ_REDIS_JSON_ARRTRIM:
         return 1;
 
     default:
@@ -223,9 +230,20 @@ redis_argn(struct cmd *r)
     case CMD_REQ_REDIS_ZSCAN:
 
     /* support rejson */
+    case CMD_REQ_REDIS_JSON_DEL:
     case CMD_REQ_REDIS_JSON_GET:
     case CMD_REQ_REDIS_JSON_SET:
-    case CMD_REQ_REDIS_JSON_DEL:
+    case CMD_REQ_REDIS_JSON_TYPE:
+    case CMD_REQ_REDIS_JSON_STRAPPEND:
+    case CMD_REQ_REDIS_JSON_STRLEN:
+    case CMD_REQ_REDIS_JSON_ARRAPPEND:
+    case CMD_REQ_REDIS_JSON_ARRINDEX:
+    case CMD_REQ_REDIS_JSON_ARRINSERT:
+    case CMD_REQ_REDIS_JSON_ARRLEN:
+    case CMD_REQ_REDIS_JSON_ARRPOP:
+    case CMD_REQ_REDIS_JSON_OBJKEYS:
+    case CMD_REQ_REDIS_JSON_OBJLEN:
+
         return 1;
 
     default:
@@ -245,6 +263,9 @@ redis_argx(struct cmd *r)
     switch (r->type) {
     case CMD_REQ_REDIS_MGET:
     case CMD_REQ_REDIS_DEL:
+
+    /* support rejson */
+    case CMD_REQ_REDIS_JSON_MGET:
         return 1;
 
     default:
@@ -952,6 +973,16 @@ redis_parse_cmd(struct cmd *r)
                     break;
                 }
 
+                if (str9icmp(m, 'j', 's', 'o', 'n', '.', 'm', 'g', 'e', 't')) {
+                    r->type = CMD_REQ_REDIS_JSON_MGET;
+                    break;
+                }
+
+                if (str9icmp(m, 'j', 's', 'o', 'n', '.', 't', 'y', 'p', 'e')) {
+                    r->type = CMD_REQ_REDIS_JSON_TYPE;
+                    break;
+                }
+
                 break;
 
             case 10:
@@ -996,6 +1027,26 @@ redis_parse_cmd(struct cmd *r)
                     break;
                 }
 
+                if (str11icmp(m, 'j', 's', 'o', 'n', '.', 's', 't', 'r', 'l', 'e', 'n')) {
+                    r->type = CMD_REQ_REDIS_JSON_STRLEN;
+                    break;
+                }
+
+                if (str11icmp(m, 'j', 's', 'o', 'n', '.', 'a', 'r', 'r', 'l', 'e', 'n')) {
+                    r->type = CMD_REQ_REDIS_JSON_ARRLEN;
+                    break;
+                }
+
+                if (str11icmp(m, 'j', 's', 'o', 'n', '.', 'a', 'r', 'r', 'p', 'o', 'p')) {
+                    r->type = CMD_REQ_REDIS_JSON_ARRPOP;
+                    break;
+                }
+
+                if (str11icmp(m, 'j', 's', 'o', 'n', '.', 'o', 'b', 'j', 'l', 'e', 'n')) {
+                    r->type = CMD_REQ_REDIS_JSON_OBJLEN;
+                    break;
+                }
+
                 break;
 
             case 12:
@@ -1004,6 +1055,15 @@ redis_parse_cmd(struct cmd *r)
                     break;
                 }
 
+                if (str12icmp(m, 'j', 's', 'o', 'n', '.', 'a', 'r', 'r', 't', 'r', 'i', 'm')) {
+                    r->type = CMD_REQ_REDIS_JSON_ARRTRIM;
+                    break;
+                }
+
+                if (str12icmp(m, 'j', 's', 'o', 'n', '.', 'o', 'b', 'j', 'k', 'e', 'y', 's')) {
+                    r->type = CMD_REQ_REDIS_JSON_OBJKEYS;
+                    break;
+                }
 
                 break;
 
@@ -1013,11 +1073,41 @@ redis_parse_cmd(struct cmd *r)
                     break;
                 }
 
+                if (str13icmp(m, 'j', 's', 'o', 'n', '.', 'a', 'r', 'r', 'i', 'n', 'd', 'e', 'x')) {
+                    r->type = CMD_REQ_REDIS_JSON_ARRINDEX;
+                    break;
+                }
+
                 break;
 
             case 14:
                 if (str14icmp(m, 'z', 'r', 'e', 'm', 'r', 'a', 'n', 'g', 'e', 'b', 'y', 'l', 'e', 'x')) {
                     r->type = CMD_REQ_REDIS_ZREMRANGEBYLEX;
+                    break;
+                }
+
+                if (str14icmp(m, 'j', 's', 'o', 'n', '.', 'n', 'u', 'm', 'i', 'n', 'c', 'r', 'b', 'y')) {
+                    r->type = CMD_REQ_REDIS_JSON_NUMINCRBY;
+                    break;
+                }
+
+                if (str14icmp(m, 'j', 's', 'o', 'n', '.', 'n', 'u', 'm', 'm', 'u', 'l', 't', 'b', 'y')) {
+                    r->type = CMD_REQ_REDIS_JSON_NUMMULTBY;
+                    break;
+                }
+
+                if (str14icmp(m, 'j', 's', 'o', 'n', '.', 's', 't', 'r', 'a', 'p', 'p', 'e', 'n', 'd')) {
+                    r->type = CMD_REQ_REDIS_JSON_STRAPPEND;
+                    break;
+                }
+
+                if (str14icmp(m, 'j', 's', 'o', 'n', '.', 'a', 'r', 'r', 'a', 'p', 'p', 'e', 'n', 'd')) {
+                    r->type = CMD_REQ_REDIS_JSON_ARRAPPEND;
+                    break;
+                }
+
+                if (str14icmp(m, 'j', 's', 'o', 'n', '.', 'a', 'r', 'r', 'i', 'n', 's', 'e', 'r', 't')) {
+                    r->type = CMD_REQ_REDIS_JSON_ARRINSERT;
                     break;
                 }
 
@@ -1131,6 +1221,14 @@ redis_parse_cmd(struct cmd *r)
                 m = token;
                 token = NULL;
 
+                if (*m == '.' &&
+                     r->type == CMD_REQ_REDIS_JSON_MGET)
+                {
+                    r->path_start = m;
+                    r->path_end = p;
+                    goto done;
+                }
+
                 kpos = hiarray_push(r->keys);
                 if (kpos == NULL) {
                     goto enomem;
@@ -1174,6 +1272,10 @@ redis_parse_cmd(struct cmd *r)
                     state = SW_ARG1_LEN;
                 } else if (redis_argx(r)) {
                     if (rnarg == 0) {
+                        if (r->type == CMD_REQ_REDIS_JSON_MGET)
+                        {
+                            goto error;
+                        }
                         goto done;
                     }
                     state = SW_KEY_LEN;
@@ -1648,7 +1750,7 @@ struct cmd *command_get()
     {
         return NULL;
     }
-        
+
     command->id = ++cmd_id;
     command->result = CMD_PARSE_OK;
     command->errstr = NULL;
@@ -1659,6 +1761,8 @@ struct cmd *command_get()
     command->narg_start = NULL;
     command->narg_end = NULL;
     command->narg = 0;
+    command->path_start = NULL;
+    command->path_end = NULL;
     command->quit = 0;
     command->noforward = 0;
     command->slot_num = -1;
