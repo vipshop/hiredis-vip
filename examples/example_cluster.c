@@ -110,6 +110,26 @@ int main(int argc, char **argv) {
     //printf("PING: %s\n", reply->str);
     //freeReplyObject(reply);
 
+    /* test */
+    reply = redisClusterCommand(cc, "get 1");
+    printf( "get 1: %lld\n", reply->integer );
+    freeReplyObject(reply);
+    reply = redisClusterCommand(cc, "get 2");
+    printf( "get 2: %lld\n", reply->integer );
+    freeReplyObject(reply);
+    reply = redisClusterCommand(cc, "get 3");
+    printf( "get 3: %lld\n", reply->integer );
+    freeReplyObject(reply);
+    reply = redisClusterCommand(cc, "get 4");
+    printf( "get 4: %lld\n", reply->integer );
+    freeReplyObject(reply);
+    reply = redisClusterCommand(cc, "get 5");
+    printf( "get 5: %lld\n", reply->integer );
+    freeReplyObject(reply);
+    reply = redisClusterCommand(cc, "get 6");
+    printf( "get 6: %lld\n", reply->integer );
+    freeReplyObject(reply);
+
     /* del */
     reply = redisClusterCommand(cc, "del foo");
     printf( "del foo: %lld\n", reply->integer );

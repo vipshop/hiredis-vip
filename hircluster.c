@@ -2625,15 +2625,18 @@ redisContext *ctx_get_by_node(redisClusterContext *cc, cluster_node *node)
     {
         if(c->err)
         {
-            redisReconnect(c);
+            if (redisReconnect(c) != REDIS_OK)
+            {
+                c->err = REDIS_ERR_OTHER;
+            }
 
             if (cc->timeout && c->err == 0) {
                 redisSetTimeout(c, *cc->timeout);
             }
 
-            if (__redisClusterAuth(cc,c) != REDIS_OK)
+            if (c->err == 0)
             {
-                goto error;
+                __redisClusterAuth(cc, c);
             }
         }
 
@@ -2658,22 +2661,14 @@ redisContext *ctx_get_by_node(redisClusterContext *cc, cluster_node *node)
         redisSetTimeout(c, *cc->timeout);
     }
 
-    if (__redisClusterAuth(cc,c) != REDIS_OK)
+    if (c != NULL && c->err == 0)
     {
-        goto error;
+        __redisClusterAuth(cc, c);
     }
 
     node->con = c;
 
     return c;
-
-error:
-    if(c)
-    {
-        redisFree(c);
-    }
-
-    return NULL;
 }
 
 static cluster_node *node_get_by_slot(redisClusterContext *cc, uint32_t slot_num)
@@ -2900,7 +2895,17 @@ static char * cluster_config_get(redisClusterContext *cc,
     }
 
     c = ctx_get_by_node(cc, node);
-    
+    if(c == NULL)
+    {
+        __redisClusterSetError(cc, REDIS_ERR_OTHER, "ctx get by node is null");
+        goto error;
+    }
+    else if(c->err)
+    {
+        __redisClusterSetError(cc, c->err, c->errstr);
+        goto error;
+    }
+
     reply = redisCommand(c, "config get %s", config_name);
     if(reply == NULL)
     {
@@ -4236,7 +4241,7 @@ static int redisCLusterSendAll(redisClusterContext *cc)
         }
         
         c = ctx_get_by_node(cc, node);
-        if(c == NULL)
+        if(c == NULL || c->err)
         {
             continue;
         }
