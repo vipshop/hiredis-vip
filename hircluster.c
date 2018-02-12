@@ -13,6 +13,8 @@
 #include "command.h"
 #include "dict.c"
 
+#define REDIS_COMMAND_AUTH "AUTH %s"
+
 #define REDIS_COMMAND_CLUSTER_NODES "CLUSTER NODES"
 #define REDIS_COMMAND_CLUSTER_SLOTS "CLUSTER SLOTS"
 
@@ -22,6 +24,9 @@
 #define REDIS_PROTOCOL_ASKING "*1\r\n$6\r\nASKING\r\n"
 
 #define IP_PORT_SEPARATOR ":"
+#define IP_PORT_INNER_PORT_SEPARATOR "@"
+
+#define CLUSTER_PASSWD_SEPARATOR "@"
 
 #define CLUSTER_ADDRESS_SEPARATOR ","
 
@@ -207,6 +212,58 @@ static void __redisClusterSetError(redisClusterContext *cc, int type, const char
         assert(type == REDIS_ERR_IO);
         __redis_strerror_r(errno, cc->errstr, sizeof(cc->errstr));
     }
+}
+
+static int __redisClusterAuth(redisClusterContext *cc, redisContext *c)
+{
+    redisReply *reply = NULL;
+
+    if(cc == NULL || c == NULL)
+    {
+        return REDIS_ERR;
+    }
+
+    if(cc->passwd)
+    {
+        reply = redisCommand(c, REDIS_COMMAND_AUTH, cc->passwd);
+        if(reply == NULL)
+        {
+            if(c->err == REDIS_ERR_TIMEOUT)
+            {
+                __redisClusterSetError(cc, c->err,
+                    "Command(auth xxx) reply error(socket timeout)");
+            }
+            else
+            {
+                __redisClusterSetError(cc, REDIS_ERR_OTHER,
+                    "Command(auth xxx) reply error(NULL).");
+            }
+
+            return REDIS_ERR;
+        }
+        else if(reply->type != REDIS_REPLY_STATUS)
+        {
+            if(reply->type == REDIS_REPLY_ERROR)
+            {
+                __redisClusterSetError(cc, REDIS_ERR_OTHER,
+                    reply->str);
+            }
+            else
+            {
+                __redisClusterSetError(cc, REDIS_ERR_OTHER,
+                    "Command(auth xxx) reply error: type is not array.");
+            }
+            freeReplyObject(reply);
+
+            return REDIS_ERR;
+        }
+        else
+        {
+            freeReplyObject(reply);
+        }
+    }
+
+    return REDIS_OK;
 }
 
 static int cluster_reply_error_type(redisReply *reply)
@@ -533,6 +590,8 @@ static cluster_node *node_get_with_nodes(
     redisClusterContext *cc,
     sds *node_infos, int info_count, uint8_t role)
 {
+    sds *ip_port_inner_port = NULL;
+    int count_ip_port_inner_port = 0;
     sds *ip_port = NULL;
     int count_ip_port = 0;
     cluster_node *node;
@@ -565,11 +624,21 @@ static cluster_node *node_get_with_nodes(
 
         node->slots->free = listClusterSlotDestructor;
     }
-    
+
+    /* after redis 4.0, the ip_port format is ip:port@inner_port */
+    ip_port_inner_port = sdssplitlen(node_infos[1], sdslen(node_infos[1]),
+        IP_PORT_INNER_PORT_SEPARATOR, strlen(IP_PORT_INNER_PORT_SEPARATOR), &count_ip_port_inner_port);
+    if (ip_port_inner_port == NULL || count_ip_port_inner_port <= 0)
+    {
+        __redisClusterSetError(cc,REDIS_ERR_OTHER,
+            "split ip port and inner port error");
+        goto error;
+    }
+
     node->name = node_infos[0]; 
-    node->addr = node_infos[1];
-    
-    ip_port = sdssplitlen(node_infos[1], sdslen(node_infos[1]), 
+    node->addr = ip_port_inner_port[0];
+
+    ip_port = sdssplitlen(ip_port_inner_port[0], sdslen(ip_port_inner_port[0]), 
         IP_PORT_SEPARATOR, strlen(IP_PORT_SEPARATOR), &count_ip_port);
     if(ip_port == NULL || count_ip_port != 2)
     {
@@ -581,15 +650,22 @@ static cluster_node *node_get_with_nodes(
     node->port = hi_atoi(ip_port[1], sdslen(ip_port[1]));
     node->role = role;
 
+    ip_port_inner_port[0] = NULL;
+    sdsfreesplitres(ip_port_inner_port, count_ip_port_inner_port);
     sdsfree(ip_port[1]);
     free(ip_port);
 
     node_infos[0] = NULL;
-    node_infos[1] = NULL;
+    /* node_infos[1] = NULL; */
     
     return node;
 
 error:
+    if(ip_port_inner_port != NULL)
+    {
+        sdsfreesplitres(ip_port_inner_port, count_ip_port_inner_port);
+    }
+
     if(ip_port != NULL)
     {
         sdsfreesplitres(ip_port, count_ip_port);
@@ -652,7 +728,7 @@ static void cluster_nodes_swap_ctx(dict *nodes_f, dict *nodes_t)
 static int
 cluster_slot_start_cmp(const void *t1, const void *t2)
 {
-    const cluster_slot **s1 = t1, **s2 = t2;
+    const cluster_slot **s1 = (const cluster_slot**)t1, **s2 = (const cluster_slot**)t2;
 
     return (*s1)->start > (*s2)->start?1:-1;
 }
@@ -1298,6 +1374,11 @@ cluster_update_route_by_addr(redisClusterContext *cc,
         redisSetTimeout(c, *cc->timeout);
     }
 
+    if (__redisClusterAuth(cc,c) != REDIS_OK)
+    {
+        goto error;
+    }
+
     if(cc->flags & HIRCLUSTER_FLAG_ROUTE_USE_SLOTS){
         reply = redisCommand(c, REDIS_COMMAND_CLUSTER_SLOTS);
         if(reply == NULL){
@@ -1544,6 +1625,11 @@ cluster_update_route_with_nodes_old(redisClusterContext *cc,
     else if(c->err)
     {
         __redisClusterSetError(cc,c->err,c->errstr);
+        goto error;
+    }
+
+    if (__redisClusterAuth(cc,c) != REDIS_OK)
+    {
         goto error;
     }
 
@@ -2017,6 +2103,7 @@ redisClusterContext *redisClusterContextInit(void) {
     cc->errstr[0] = '\0';
     cc->ip = NULL;
     cc->port = 0;
+    cc->passwd = NULL;
     cc->flags = 0;
     cc->connect_timeout = NULL;
     cc->timeout = NULL;
@@ -2046,6 +2133,12 @@ void redisClusterFree(redisClusterContext *cc) {
     {
         sdsfree(cc->ip);
         cc->ip = NULL;
+    }
+
+    if(cc->passwd)
+    {
+        sdsfree(cc->passwd);
+        cc->passwd = NULL;
     }
 
     if (cc->connect_timeout)
@@ -2268,6 +2361,8 @@ int redisClusterSetOptionAddNode(redisClusterContext *cc, const char *addr)
 int redisClusterSetOptionAddNodes(redisClusterContext *cc, const char *addrs)
 {
     int ret;
+    sds *passwd = NULL;
+    int passwd_count = 0;
     sds *address = NULL;
     int address_count = 0;
     int i;
@@ -2277,11 +2372,44 @@ int redisClusterSetOptionAddNodes(redisClusterContext *cc, const char *addrs)
         return REDIS_ERR;
     }
 
+    passwd = sdssplitlen(addrs, strlen(addrs), CLUSTER_PASSWD_SEPARATOR,
+        strlen(CLUSTER_PASSWD_SEPARATOR), &passwd_count);
+    if(passwd == NULL || passwd_count < 1 || passwd_count > 2)
+    {
+        if (passwd != NULL)
+        {
+            sdsfreesplitres(passwd, passwd_count);
+        }
+        __redisClusterSetError(cc,REDIS_ERR_OTHER,"servers address is error(correct is like: [passwd@]127.0.0.1:1234,127.0.0.2:5678)");
+        return REDIS_ERR;
+    }
+
+    /* exists authentication password */
+    if(passwd_count == 2)
+    {
+        ret = redisClusterSetOptionPassword(cc, passwd[0]);
+        if (ret != REDIS_OK)
+        {
+            sdsfreesplitres(passwd, passwd_count);
+            return REDIS_ERR;
+        }
+
+        /* filter authentication password and CLUSTER_PASSWD_SEPARATOR */
+        addrs += strlen(passwd[0]);
+        addrs += strlen(CLUSTER_PASSWD_SEPARATOR);
+    }
+
+    sdsfreesplitres(passwd, passwd_count);
+
     address = sdssplitlen(addrs, strlen(addrs), CLUSTER_ADDRESS_SEPARATOR, 
         strlen(CLUSTER_ADDRESS_SEPARATOR), &address_count);
     if(address == NULL || address_count <= 0)
     {
-        __redisClusterSetError(cc,REDIS_ERR_OTHER,"servers address is error(correct is like: 127.0.0.1:1234,127.0.0.2:5678)");
+        if (address != NULL)
+        {
+            sdsfreesplitres(address, address_count);
+        }
+        __redisClusterSetError(cc,REDIS_ERR_OTHER,"servers address is error(correct is like: [passwd@]127.0.0.1:1234,127.0.0.2:5678)");
         return REDIS_ERR;
     }
 
@@ -2455,6 +2583,24 @@ int redisClusterSetOptionMaxRedirect(redisClusterContext *cc, int max_redirect_c
     return REDIS_OK;
 }
 
+int redisClusterSetOptionPassword(redisClusterContext *cc, const char *passwd)
+{
+    if(cc == NULL || passwd == NULL)
+    {
+        return REDIS_ERR;
+    }
+
+    if(cc->passwd)
+    {
+        sdsfree(cc->passwd);
+        cc->passwd = NULL;
+    }
+
+    cc->passwd = sdsnew(passwd);
+
+    return REDIS_OK;
+}
+
 int redisClusterConnect2(redisClusterContext *cc)
 {
     
@@ -2479,10 +2625,18 @@ redisContext *ctx_get_by_node(redisClusterContext *cc, cluster_node *node)
     {
         if(c->err)
         {
-            redisReconnect(c);
+            if (redisReconnect(c) != REDIS_OK)
+            {
+                c->err = REDIS_ERR_OTHER;
+            }
 
             if (cc->timeout && c->err == 0) {
                 redisSetTimeout(c, *cc->timeout);
+            }
+
+            if (c->err == 0)
+            {
+                __redisClusterAuth(cc, c);
             }
         }
 
@@ -2505,6 +2659,11 @@ redisContext *ctx_get_by_node(redisClusterContext *cc, cluster_node *node)
 
     if (cc->timeout && c != NULL && c->err == 0) {
         redisSetTimeout(c, *cc->timeout);
+    }
+
+    if (c != NULL && c->err == 0)
+    {
+        __redisClusterAuth(cc, c);
     }
 
     node->con = c;
@@ -2736,7 +2895,17 @@ static char * cluster_config_get(redisClusterContext *cc,
     }
 
     c = ctx_get_by_node(cc, node);
-    
+    if(c == NULL)
+    {
+        __redisClusterSetError(cc, REDIS_ERR_OTHER, "ctx get by node is null");
+        goto error;
+    }
+    else if(c->err)
+    {
+        __redisClusterSetError(cc, c->err, c->errstr);
+        goto error;
+    }
+
     reply = redisCommand(c, "config get %s", config_name);
     if(reply == NULL)
     {
@@ -3154,6 +3323,7 @@ static int command_pre_fragment(redisClusterContext *cc,
     uint32_t i, j;
     uint32_t idx;
     uint32_t key_len;
+    uint32_t path_len;
     int slot_num = -1;
     struct cmd *sub_command;
     struct cmd **sub_commands = NULL;
@@ -3297,6 +3467,67 @@ static int command_pre_fragment(redisClusterContext *cc,
                 memcpy(sub_command->cmd + idx, CRLF, CRLF_LEN);
                 idx += CRLF_LEN;
             }
+        } else if (command->type == CMD_REQ_REDIS_JSON_MGET) {
+            //"*%d\r\n$9\r\njson.mget\r\n"
+            
+            /* path */
+            path_len = command->path_end - command->path_start;
+            sub_command->clen += path_len + uint_len(path_len);
+            sub_command->narg ++;
+
+            sub_command->clen += 5*sub_command->narg;
+
+            sub_command->narg ++;
+
+            hi_itoa(num_str, sub_command->narg);
+            num_str_len = (uint8_t)(strlen(num_str));
+
+            sub_command->clen += 18 + num_str_len;
+
+            sub_command->cmd = hi_zalloc(sub_command->clen * sizeof(*sub_command->cmd));
+            if(sub_command->cmd == NULL)
+            {
+                __redisClusterSetError(cc,REDIS_ERR_OOM,"Out of memory");
+                slot_num = -1;
+                goto done;
+            }
+
+            sub_command->cmd[idx++] = '*';
+            memcpy(sub_command->cmd + idx, num_str, num_str_len);
+            idx += num_str_len;
+            memcpy(sub_command->cmd + idx, "\r\n$9\r\njson.mget\r\n", 17);
+            idx += 17;
+            
+            for(j = 0; j < hiarray_n(sub_command->keys); j ++)
+            {
+                kp = hiarray_get(sub_command->keys, j);
+                key_len = (uint32_t)(kp->end - kp->start);
+                hi_itoa(num_str, key_len);
+                num_str_len = strlen(num_str);
+
+                sub_command->cmd[idx++] = '$';
+                memcpy(sub_command->cmd + idx, num_str, num_str_len);
+                idx += num_str_len;
+                memcpy(sub_command->cmd + idx, CRLF, CRLF_LEN);
+                idx += CRLF_LEN;
+                memcpy(sub_command->cmd + idx, kp->start, key_len);
+                idx += key_len;
+                memcpy(sub_command->cmd + idx, CRLF, CRLF_LEN);
+                idx += CRLF_LEN;
+            }
+
+            /* path */
+            hi_itoa(num_str, path_len);
+            num_str_len = strlen(num_str);
+            sub_command->cmd[idx++] = '$';
+            memcpy(sub_command->cmd + idx, num_str, num_str_len);
+            idx += num_str_len;
+            memcpy(sub_command->cmd + idx, CRLF, CRLF_LEN);
+            idx += CRLF_LEN;
+            memcpy(sub_command->cmd + idx, command->path_start, path_len);
+            idx += key_len;
+            memcpy(sub_command->cmd + idx, CRLF, CRLF_LEN);
+            idx += CRLF_LEN;
         } else if (command->type == CMD_REQ_REDIS_DEL) {
             //"*%d\r\n$3\r\ndel\r\n"
             
@@ -3443,7 +3674,8 @@ static void *command_post_fragment(redisClusterContext *cc,
             return reply;
         }
 
-        if (command->type == CMD_REQ_REDIS_MGET) {
+        if (command->type == CMD_REQ_REDIS_MGET ||
+            command->type == CMD_REQ_REDIS_JSON_MGET) {
             if(reply->type != REDIS_REPLY_ARRAY)
             {
                 __redisClusterSetError(cc,REDIS_ERR_OTHER,"reply type is error(here only can be array)");
@@ -3477,7 +3709,8 @@ static void *command_post_fragment(redisClusterContext *cc,
         return NULL;
     }
 
-    if (command->type == CMD_REQ_REDIS_MGET) {
+    if (command->type == CMD_REQ_REDIS_MGET ||
+        command->type == CMD_REQ_REDIS_JSON_MGET) {
         int i;
         uint32_t key_count;
 
@@ -4008,7 +4241,7 @@ static int redisCLusterSendAll(redisClusterContext *cc)
         }
         
         c = ctx_get_by_node(cc, node);
-        if(c == NULL)
+        if(c == NULL || c->err)
         {
             continue;
         }
@@ -4245,6 +4478,95 @@ static void __redisClusterAsyncSetError(redisClusterAsyncContext *acc,
     }
 }
 
+static void __redisClusterAsyncAuthCallBack(redisAsyncContext *ac, void *reply_, void *acc_)
+{
+    redisReply *reply = (redisReply*)reply_;
+    redisClusterAsyncContext *acc = (redisClusterAsyncContext*)acc_;
+    if(reply == NULL)
+    {
+        if(ac->err == REDIS_ERR_TIMEOUT)
+        {
+            __redisClusterAsyncSetError(acc, ac->err,
+                "Command(auth xxx) reply error(socket timeout)");
+        }
+        else
+        {
+            __redisClusterAsyncSetError(acc, REDIS_ERR_OTHER,
+                "Command(auth xxx) reply error(NULL).");
+        }
+
+        if(acc->onAuthenticate)
+        {
+            acc->onAuthenticate(acc, ac, REDIS_ERR);
+        }
+    }
+    else if(reply->type != REDIS_REPLY_STATUS)
+    {
+        if (reply->type == REDIS_REPLY_ERROR)
+        {
+            __redisClusterAsyncSetError(acc, REDIS_ERR_OTHER,
+                reply->str);
+        }
+        else
+        {
+            __redisClusterAsyncSetError(acc, REDIS_ERR_OTHER,
+                "Command(auth xxx) reply error: type is not array.");
+        }
+        freeReplyObject(reply);
+
+        if(acc->onAuthenticate)
+        {
+            acc->onAuthenticate(acc, ac, REDIS_ERR);
+        }
+    }
+    else
+    {
+        freeReplyObject(reply);
+
+        if(acc->onAuthenticate)
+        {
+            acc->onAuthenticate(acc, ac, REDIS_OK);
+        }
+    }
+}
+
+static int __redisClusterAsyncAuth(redisClusterAsyncContext *acc, redisAsyncContext *ac )
+{
+    int status;
+
+    if (acc == NULL || acc->cc == NULL || ac == NULL)
+    {
+        return REDIS_ERR;
+    }
+
+    if (acc->cc->passwd)
+    {
+        if(acc->err)
+        {
+            acc->err = 0;
+            memset(acc->errstr, '\0', strlen(acc->errstr));
+        }
+
+        if(acc->cc->err)
+        {
+            acc->cc->err = 0;
+            memset(acc->cc->errstr, '\0', strlen(acc->cc->errstr));
+        }
+
+        status = redisAsyncCommand(ac,
+                                   __redisClusterAsyncAuthCallBack,
+                                   acc,
+                                   REDIS_COMMAND_AUTH,
+                                   acc->cc->passwd);
+        if(status != REDIS_OK )
+        {
+            return REDIS_ERR;
+        }
+    }
+
+    return REDIS_OK;
+}
+
 static redisClusterAsyncContext *redisClusterAsyncInitialize(redisClusterContext *cc) {
     redisClusterAsyncContext *acc;
 
@@ -4266,6 +4588,8 @@ static redisClusterAsyncContext *redisClusterAsyncInitialize(redisClusterContext
 
     acc->onConnect = NULL;
     acc->onDisconnect = NULL;
+
+    acc->onAuthenticate = NULL;
 
     return acc;
 }
@@ -4361,6 +4685,11 @@ redisAsyncContext * actx_get_by_node(redisClusterAsyncContext *acc,
     if(acc->onDisconnect)
     {
         redisAsyncSetDisconnectCallback(ac, acc->onDisconnect);
+    }
+
+    if (acc->cc && acc->cc->passwd )
+    {
+        __redisClusterAsyncAuth(acc, ac);
     }
 
     ac->data = node;
@@ -4459,6 +4788,16 @@ int redisClusterAsyncSetDisconnectCallback(
 {
     if (acc->onDisconnect == NULL) {
         acc->onDisconnect = fn;
+        return REDIS_OK;
+    }
+    return REDIS_ERR;
+}
+
+int redisClusterAsyncSetAuthCallback(
+    redisClusterAsyncContext *acc, redisAuthenticateCallback *fn)
+{
+    if (acc->onAuthenticate == NULL) {
+        acc->onAuthenticate = fn;
         return REDIS_OK;
     }
     return REDIS_ERR;

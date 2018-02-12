@@ -301,6 +301,34 @@ callbacks have been executed. After this, the disconnection callback is executed
 There are a few hooks that need to be set on the cluster context object after it is created.
 See the `adapters/` directory for bindings to *ae* and *libevent*.
 
+### Support ReJson
+Support three ReJson commands:
+https://github.com/RedisLabsModules/rejson/blob/master/docs/commands.md
+
+* **`JSON.DEL <key> <path>`**
+* **`JSON.GET <key>
+              [INDENT indentation-string]
+              [NEWLINE line-break-string]
+              [SPACE space-string]
+              [NOESCAPE]
+              [path ...]`**
+* **`JSON.MGET <key> [key ...] <path>`**
+* **`JSON.SET <key> <path> <json>
+              [NX | XX]`**
+* **`JSON.TYPE <key> [path]`**
+* **`JSON.NUMINCRBY <key> <path> <number>`**
+* **`JSON.NUMMULTBY <key> <path> <number>`**
+* **`JSON.STRAPPEND <key> [path] <json-string>`**
+* **`JSON.STRLEN <key> [path]`**
+* **`JSON.ARRAPPEND <key> <path> <json> [json ...]`**
+* **`JSON.ARRINDEX <key> <path> <json-scalar> [start [stop]]`**
+* **`JSON.ARRINSERT <key> <path> <index> <json> [json ...]`**
+* **`JSON.ARRLEN <key> [path]`**
+* **`JSON.ARRPOP <key> [path [index]]`**
+* **`JSON.ARRTRIM <key> <path> <start> <stop>`**
+* **`JSON.OBJKEYS <key> [path]`**
+* **`JSON.OBJLEN <key> [path]`**
+
 ## AUTHORS
 
 Hiredis-vip was maintained and used at vipshop(https://github.com/vipshop).
