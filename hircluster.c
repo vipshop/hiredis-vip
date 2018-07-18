@@ -3436,10 +3436,12 @@ static void *command_post_fragment(redisClusterContext *cc,
         reply = sub_command->reply;
         if(reply == NULL)
         {
+            listReleaseIterator(list_iter);
             return NULL;
         }
         else if(reply->type == REDIS_REPLY_ERROR)
         {
+            listReleaseIterator(list_iter);
             return reply;
         }
 
@@ -3447,12 +3449,14 @@ static void *command_post_fragment(redisClusterContext *cc,
             if(reply->type != REDIS_REPLY_ARRAY)
             {
                 __redisClusterSetError(cc,REDIS_ERR_OTHER,"reply type is error(here only can be array)");
+                listReleaseIterator(list_iter);
                 return NULL;
             }
         }else if(command->type == CMD_REQ_REDIS_DEL){
             if(reply->type != REDIS_REPLY_INTEGER)
             {
                 __redisClusterSetError(cc,REDIS_ERR_OTHER,"reply type is error(here only can be integer)");
+                listReleaseIterator(list_iter);
                 return NULL;
             }
 
@@ -3462,11 +3466,17 @@ static void *command_post_fragment(redisClusterContext *cc,
                 reply->len != 2 || strcmp(reply->str, REDIS_STATUS_OK) != 0)
             {
                 __redisClusterSetError(cc,REDIS_ERR_OTHER,"reply type is error(here only can be status and ok)");
+                listReleaseIterator(list_iter);
                 return NULL;
             }
         }else {
             NOT_REACHED();
         }
+    }
+
+    if(list_iter != NULL)
+    {
+        listReleaseIterator(list_iter);
     }
 
     reply = hi_calloc(1,sizeof(*reply));
@@ -3677,14 +3687,21 @@ void *redisClusterFormattedCommand(redisClusterContext *cc, char *cmd, int len) 
         reply = redis_cluster_command_execute(cc, sub_command);
         if(reply == NULL)
         {
+            listReleaseIterator(list_iter);
             goto error;
         }
         else if(reply->type == REDIS_REPLY_ERROR)
         {
+            listReleaseIterator(list_iter);
             goto done;
         }
 
         sub_command->reply = reply;
+    }
+
+    if(list_iter != NULL)
+    {
+        listReleaseIterator(list_iter);
     }
 
     reply = command_post_fragment(cc, command, commands);
@@ -3697,11 +3714,6 @@ done:
     if(commands != NULL)
     {
         listRelease(commands);
-    }
-
-    if(list_iter != NULL)
-    {
-        listReleaseIterator(list_iter);
     }
 
     cc->retry_count = 0;
@@ -3719,11 +3731,6 @@ error:
     if(commands != NULL)
     {
         listRelease(commands);
-    }
-
-    if(list_iter != NULL)
-    {
-        listReleaseIterator(list_iter);
     }
 
     cc->retry_count = 0;
@@ -4135,6 +4142,7 @@ int redisClusterGetReply(redisClusterContext *cc, void **reply) {
         {
             __redisClusterSetError(cc,REDIS_ERR_OTHER,
                 "sub_command is null");
+            listReleaseIterator(list_iter);
             goto error;
         }
         
@@ -4143,15 +4151,22 @@ int redisClusterGetReply(redisClusterContext *cc, void **reply) {
         {
             __redisClusterSetError(cc,REDIS_ERR_OTHER,
                 "sub_command slot_num is less then zero");
+            listReleaseIterator(list_iter);
             goto error;
         }
         
         if(__redisClusterGetReply(cc, slot_num, &sub_reply) != REDIS_OK)
         {
+            listReleaseIterator(list_iter);
             goto error;
         }
 
         sub_command->reply = sub_reply;
+    }
+
+    if(list_iter != NULL)
+    {
+        listReleaseIterator(list_iter);
     }
 
     *reply = command_post_fragment(cc, command, commands);
