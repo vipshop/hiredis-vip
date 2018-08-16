@@ -74,6 +74,7 @@ extern "C" {
 typedef struct redisClusterContext {
     int err; /* Error flags, 0 when there is no error */
     char errstr[128]; /* String representation of error when applicable */
+    char auth[128];
     sds ip;
     int port;
 
@@ -101,15 +102,20 @@ typedef struct redisClusterContext {
 } redisClusterContext;
 
 redisClusterContext *redisClusterConnect(const char *addrs, int flags);
+redisClusterContext *redisClusterConnectWithAuth(const char *addrs, const char *auth, int flags);
 redisClusterContext *redisClusterConnectWithTimeout(const char *addrs, 
     const struct timeval tv, int flags);
+redisClusterContext *redisClusterConnectWithTimeoutWithAuth(const char *addrs, const char *auth,
+    const struct timeval tv, int flags);
 redisClusterContext *redisClusterConnectNonBlock(const char *addrs, int flags);
+redisClusterContext *redisClusterConnectNonBlockWithAuth(const char *addrs, const char *auth, int flags);
 
 redisClusterContext *redisClusterContextInit(void);
 void redisClusterFree(redisClusterContext *cc);
 
 int redisClusterSetOptionAddNode(redisClusterContext *cc, const char *addr);
 int redisClusterSetOptionAddNodes(redisClusterContext *cc, const char *addrs);
+int redisClusterSetOptionSetAuth(redisClusterContext *cc, const char *auth);
 int redisClusterSetOptionConnectBlock(redisClusterContext *cc);
 int redisClusterSetOptionConnectNonBlock(redisClusterContext *cc);
 int redisClusterSetOptionParseSlaves(redisClusterContext *cc);
@@ -176,6 +182,7 @@ typedef struct redisClusterAsyncContext {
 } redisClusterAsyncContext;
 
 redisClusterAsyncContext *redisClusterAsyncConnect(const char *addrs, int flags);
+redisClusterAsyncContext *redisClusterAsyncConnectWithAuth(const char *addrs, const char *auth, int flags);
 int redisClusterAsyncSetConnectCallback(redisClusterAsyncContext *acc, redisConnectCallback *fn);
 int redisClusterAsyncSetDisconnectCallback(redisClusterAsyncContext *acc, redisDisconnectCallback *fn);
 int redisClusterAsyncFormattedCommand(redisClusterAsyncContext *acc, redisClusterCallbackFn *fn, void *privdata, char *cmd, int len);
