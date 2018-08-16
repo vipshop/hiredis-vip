@@ -94,6 +94,7 @@ int main(int argc, char **argv) {
         }
         exit(1);
     }
+    print_cluster_node_list(cc);
 
     struct timeval begin;
     gettimeofday(&begin, NULL);

@@ -1974,7 +1974,7 @@ cluster_update_route(redisClusterContext *cc)
     return REDIS_ERR;
 }
 
-static void print_cluster_node_list(redisClusterContext *cc)
+void print_cluster_node_list(redisClusterContext *cc)
 {
     dictIterator *di = NULL;
     dictEntry *de;
@@ -2016,18 +2016,6 @@ static void print_cluster_node_list(redisClusterContext *cc)
 
         printf("\n");
     }
-}
-
-
-int test_cluster_update_route(redisClusterContext *cc)
-{
-    int ret;
-    
-    ret = cluster_update_route(cc);
-
-    //print_cluster_node_list(cc);
-    
-    return ret;
 }
 
 redisClusterContext *redisClusterContextInit(void) {
