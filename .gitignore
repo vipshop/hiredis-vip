@@ -5,3 +5,5 @@
 /*.dylib
 /*.a
 /*.pc
+testcases/testcase-cluster
+testcases/testcase-redis

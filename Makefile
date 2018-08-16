@@ -8,6 +8,7 @@ EXAMPLES=hiredis-example hiredis-example-libevent hiredis-example-libev hiredis-
 TESTS=hiredis-test
 LIBNAME=libhiredis_vip
 PKGCONFNAME=hiredis_vip.pc
+TESTCASES=testcase-cluster
 
 HIREDIS_VIP_MAJOR=$(shell grep HIREDIS_VIP_MAJOR hircluster.h | awk '{print $$3}')
 HIREDIS_VIP_MINOR=$(shell grep HIREDIS_VIP_MINOR hircluster.h | awk '{print $$3}')
@@ -124,6 +125,12 @@ hiredis-example: examples/example.c $(STLIBNAME)
 	$(CC) -o examples/$@ $(REAL_CFLAGS) $(REAL_LDFLAGS) -I. $< $(STLIBNAME)
 
 examples: $(EXAMPLES)
+
+testcase-cluster: testcases/cluster.c $(STLIBNAME)
+	$(CC) -o testcases/$@ $(REAL_CFLAGS) $(REAL_LDFLAGS) -I. $< $(STLIBNAME)
+
+testcase-redis: testcases/redis.c $(STLIBNAME)
+	$(CC) -o testcases/$@ $(REAL_CFLAGS) $(REAL_LDFLAGS) -I. $< $(STLIBNAME)
 
 hiredis-test: test.o $(STLIBNAME)
 
