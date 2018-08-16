@@ -31,6 +31,7 @@ void redisClusterFree(redisClusterContext *cc);
 
 int redisClusterSetOptionAddNode(redisClusterContext *cc, const char *addr);
 int redisClusterSetOptionAddNodes(redisClusterContext *cc, const char *addrs);
+int redisClusterSetOptionSetAuth(redisClusterContext *cc, const char *auth);
 int redisClusterSetOptionConnectBlock(redisClusterContext *cc);
 int redisClusterSetOptionConnectNonBlock(redisClusterContext *cc);
 int redisClusterSetOptionParseSlaves(redisClusterContext *cc);
@@ -73,8 +74,11 @@ redisAsyncContext *actx_get_by_node(redisClusterAsyncContext *acc, cluster_node 
 
 ```c
 redisClusterContext *redisClusterConnect(const char *addrs, int flags);
+redisClusterContext *redisClusterConnectWithAuth(const char *addrs, const char *auth, int flags);
 redisClusterContext *redisClusterConnectWithTimeout(const char *addrs, const struct timeval tv, int flags);
+redisClusterContext *redisClusterConnectWithTimeoutWithAuth(const char *addrs, const char *auth, const struct timeval tv, int flags);
 redisClusterContext *redisClusterConnectNonBlock(const char *addrs, int flags);
+redisClusterContext *redisClusterConnectNonBlockWithAuth(const char *addrs, const char *auth, int flags);
 void redisClusterFree(redisClusterContext *cc);
 void redisClusterSetMaxRedirect(redisClusterContext *cc, int max_redirect_count);
 void *redisClusterFormattedCommand(redisClusterContext *cc, char *cmd, int len);
@@ -90,6 +94,7 @@ int redisClusterGetReply(redisClusterContext *cc, void **reply);
 void redisClusterReset(redisClusterContext *cc);
 
 redisClusterAsyncContext *redisClusterAsyncConnect(const char *addrs, int flags);
+redisClusterAsyncContext *redisClusterAsyncConnectWithAuth(const char *addrs, const char *auth, int flags);
 int redisClusterAsyncSetConnectCallback(redisClusterAsyncContext *acc, redisConnectCallback *fn);
 int redisClusterAsyncSetDisconnectCallback(redisClusterAsyncContext *acc, redisDisconnectCallback *fn);
 int redisClusterAsyncFormattedCommand(redisClusterAsyncContext *acc, redisClusterCallbackFn *fn, void *privdata, char *cmd, int len);
@@ -113,6 +118,7 @@ To consume the synchronous API, there are only a few function calls that need to
 ```c
 redisClusterContext *redisClusterContextInit(void);
 int redisClusterSetOptionAddNodes(redisClusterContext *cc, const char *addrs);
+int redisClusterSetOptionSetAuth(redisClusterContext *cc, const char *auth);
 int redisClusterSetOptionMaxRedirect(redisClusterContext *cc, int max_redirect_count);
 int redisClusterSetOptionConnectTimeout(redisClusterContext *cc, const struct timeval tv);
 int redisClusterSetOptionTimeout(redisClusterContext *cc, const struct timeval tv);
@@ -125,6 +131,7 @@ void redisClusterFree(redisClusterContext *cc);
 
 The function `redisClusterContextInit` is used to create a so-called `redisClusterContext`. 
 The function `redisClusterSetOptionAddNodes` is used to add the redis cluster address. 
+The function `redisClusterSetOptionSetAuth` is used to add the redis cluster password.
 The function `redisClusterConnect2` is used to connect to the redis cluser. 
 The context is where Hiredis-vip Cluster holds state for connections. The `redisClusterContext`
 struct has an integer `err` field that is non-zero when the connection is in
@@ -135,6 +142,7 @@ check the `err` field to see if establishing the connection was successful:
 ```c
 redisClusterContext *cc = redisClusterContextInit();
 redisClusterSetOptionAddNodes(cc, "127.0.0.1:6379,127.0.0.1:6380");
+redisClusterSetOptionSetAuth(cc, "P@ssw0rd");
 redisClusterConnect2(cc);
 if (cc != NULL && cc->err) {
     printf("Error: %s\n", cc->errstr);
