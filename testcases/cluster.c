@@ -82,6 +82,7 @@ int main(int argc, char **argv) {
     redisClusterSetOptionAddNodes(cc, addrs);
     redisClusterSetOptionRouteUseSlots(cc);
     redisClusterSetOptionParseSlaves(cc);
+    redisClusterSetOptionSetAuth(cc, "abc");
     redisClusterSetOptionConnectTimeout(cc, timeout);
     redisClusterConnect2(cc);
     if (cc == NULL || cc->err) {
