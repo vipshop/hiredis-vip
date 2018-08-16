@@ -3560,6 +3560,7 @@ static void *command_post_fragment(redisClusterContext *cc,
         }
         else if(reply->type == REDIS_REPLY_ERROR)
         {
+            listReleaseIterator(list_iter);
             return reply;
         }
 
