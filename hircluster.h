@@ -30,6 +30,17 @@
   * is 'cluster nodes' command.*/
 #define HIRCLUSTER_FLAG_ROUTE_USE_SLOTS     0x4000
 
+
+//#define DEBUG 1
+
+#ifdef DEBUG
+#define debug(fmt, ...) \
+    printf("XXX %s: " #fmt  "\n", __func__, ## __VA_ARGS__);
+#else
+#define debug(...)
+#endif
+
+
 struct dict;
 struct hilist;
 
@@ -39,6 +50,7 @@ typedef struct cluster_node
     sds addr;
     sds host;
     int port;
+    int data_port;
     uint8_t role;
     uint8_t myself;   /* myself ? */
     redisContext *con;
@@ -186,6 +198,10 @@ void redisClusterAsyncDisconnect(redisClusterAsyncContext *acc);
 void redisClusterAsyncFree(redisClusterAsyncContext *acc);
 
 redisAsyncContext *actx_get_by_node(redisClusterAsyncContext *acc, cluster_node *node);
+
+/*#####################################################*/
+
+long long redisClusterDbSize(redisClusterContext *cc);
 
 #ifdef __cplusplus
 }
