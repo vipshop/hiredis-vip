@@ -119,6 +119,8 @@ typedef enum cmd_parse_result {
     ACTION( REQ_REDIS_EVALSHA )                                                                     \
     ACTION( REQ_REDIS_PING )                   /* redis requests - ping/quit */                         \
     ACTION( REQ_REDIS_QUIT)                                                                         \
+    ACTION( REQ_REDIS_INFO )                                                                        \
+    ACTION( REQ_REDIS_DBSIZE )                                                                      \
     ACTION( REQ_REDIS_AUTH)                                                                         \
     ACTION( RSP_REDIS_STATUS )                 /* redis response */                                   \
     ACTION( RSP_REDIS_ERROR )                                                                       \

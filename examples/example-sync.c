@@ -16,6 +16,7 @@ int main()
     char *key2="key1";
     char *value2="value-1";
     redisClusterContext *cc;
+    redisReply *reply;
 
     cc = redisClusterContextInit();
     redisClusterSetOptionAddNodes(cc, "127.0.0.1:7000,127.0.0.1:7001,127.0.0.1:7002");
@@ -27,7 +28,11 @@ int main()
         return -1;
     }
 
-    redisReply *reply = redisClusterCommand(cc, "dbsize");
+    test_cluster_update_route(cc);
+
+    printf("redisClusterDbSize %ld\n", (long)redisClusterDbSize(cc));
+
+    reply = redisClusterCommand(cc, "hmget %s %s", key, field);
     if(reply == NULL)
     {
         printf("reply is null[%s]\n", cc->errstr);
@@ -36,19 +41,6 @@ int main()
     }
 
     printf("reply->type:%d\n", reply->type);
-    printf("reply->str:%s\n", reply->str);
-
-    freeReplyObject(reply);
-
-    redisReply *reply = redisClusterCommand(cc, "hmget %s %s", key, field);
-    if(reply == NULL)
-    {
-        printf("reply is null[%s]\n", cc->errstr);
-        redisClusterFree(cc);
-        return -1;
-    }
-
-    printf("reply->type:%d", reply->type);
 
     freeReplyObject(reply);
 
@@ -60,9 +52,10 @@ int main()
         return -1;
     }
 
-    printf("reply->str:%s", reply->str);
+    printf("reply->str:%s\n", reply->str);
 
     freeReplyObject(reply);
     redisClusterFree(cc);
     return 0;
 }
+
