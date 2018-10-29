@@ -12,6 +12,9 @@
 #define _POSIX_C_SOURCE 200112L
 #elif defined(__linux__) || defined(__OpenBSD__) || defined(__NetBSD__)
 #define _XOPEN_SOURCE 600
+#elif defined(__CYGWIN__)
+#define _XOPEN_SOURCE 600
+#define _POSIX_C_SOURCE 200112L
 #else
 #define _XOPEN_SOURCE
 #endif

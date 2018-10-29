@@ -1,5 +1,6 @@
 #include <ctype.h>
 #include <errno.h>
+#include <stdlib.h>
 
 #include "command.h"
 #include "hiutil.h"
@@ -19,6 +20,8 @@ redis_argz(struct cmd *r)
     switch (r->type) {
     case CMD_REQ_REDIS_PING:
     case CMD_REQ_REDIS_QUIT:
+    case CMD_REQ_REDIS_INFO:
+    case CMD_REQ_REDIS_DBSIZE:
         return 1;
 
     default:
@@ -611,6 +614,12 @@ redis_parse_cmd(struct cmd *r)
                     break;
                 }
 
+                if (str4icmp(m, 'i', 'n', 'f', 'o')) {
+                    r->type = CMD_REQ_REDIS_INFO;
+                    r->noforward = 1;
+                    break;
+                }
+
                 if (str4icmp(m, 'a', 'u', 't', 'h')) {
                     r->type = CMD_REQ_REDIS_AUTH;
                     r->noforward = 1;
@@ -813,6 +822,12 @@ redis_parse_cmd(struct cmd *r)
                     break;
                 }
 
+                if (str6icmp(m, 'd', 'b', 's', 'i', 'z', 'e')) {
+                    r->type = CMD_REQ_REDIS_DBSIZE;
+                    r->noforward = 1;
+                    break;
+                }
+
                 break;
 
             case 7:
@@ -939,6 +954,8 @@ redis_parse_cmd(struct cmd *r)
                     r->type = CMD_REQ_REDIS_SDIFFSTORE;
                     break;
                 }
+
+                break;
 
             case 11:
                 if (str11icmp(m, 'i', 'n', 'c', 'r', 'b', 'y', 'f', 'l', 'o', 'a', 't')) {
