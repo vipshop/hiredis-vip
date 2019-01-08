@@ -46,6 +46,8 @@ typedef struct cluster_node
     struct hilist *slots;
     struct hilist *slaves;
     int failure_count;
+	int conn_failed;
+	uint64_t last_conn_time;
     void *data;     /* Not used by hiredis */
     struct hiarray *migrating;  /* copen_slot[] */
     struct hiarray *importing;  /* copen_slot[] */
