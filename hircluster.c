@@ -4045,7 +4045,8 @@ static int redisCLusterSendAll(redisClusterContext *cc)
                 if (redisBufferWrite(c,&wdone) == REDIS_ERR)
                 {
                     dictReleaseIterator(di);
-                    return REDIS_ERR;
+					c->err = REDIS_ERR;
+					break;
                 }
             } while (!wdone);
         }
