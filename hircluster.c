@@ -4011,8 +4011,12 @@ int redisClusterAppendCommandArgv(redisClusterContext *cc,
     return ret;
 }
 
-static int redisCLusterSendAll(redisClusterContext *cc)
+int redisCLusterSendAll(redisClusterContext *cc)
 {
+	if(!cc){
+		return REDIS_ERR;
+	}
+
     dictIterator *di;
     dictEntry *de;
     struct cluster_node *node;
@@ -4044,7 +4048,7 @@ static int redisCLusterSendAll(redisClusterContext *cc)
             do {
                 if (redisBufferWrite(c,&wdone) == REDIS_ERR)
                 {
-                    dictReleaseIterator(di);
+                    //dictReleaseIterator(di);
 					c->err = REDIS_ERR;
 					break;
                 }
