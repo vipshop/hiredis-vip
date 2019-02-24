@@ -46,6 +46,8 @@ typedef struct cluster_node
     struct hilist *slots;
     struct hilist *slaves;
     int failure_count;
+	int conn_failed;
+	uint64_t last_conn_time;
     void *data;     /* Not used by hiredis */
     struct hiarray *migrating;  /* copen_slot[] */
     struct hiarray *importing;  /* copen_slot[] */
@@ -141,6 +143,7 @@ int cluster_update_route(redisClusterContext *cc);
 int test_cluster_update_route(redisClusterContext *cc);
 struct dict *parse_cluster_nodes(redisClusterContext *cc, char *str, int str_len, int flags);
 struct dict *parse_cluster_slots(redisClusterContext *cc, redisReply *reply, int flags);
+int redisCLusterSendAll(redisClusterContext *cc);
 
 
 /*############redis cluster async############*/
