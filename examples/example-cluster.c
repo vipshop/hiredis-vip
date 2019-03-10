@@ -57,7 +57,7 @@ int main(int argc, char **argv) {
         redisClusterFree(cc);
         return -1;
     }
-    printf("publish channel msg:%d\n", reply->integer);   
+    printf("PUBLISH channel msg: %d\n", reply->integer);   
 
     // xadd
     reply = redisClusterCommand(cc, "xadd sensor_data * sensor_id 1234");
@@ -66,7 +66,7 @@ int main(int argc, char **argv) {
         redisClusterFree(cc);
         return -1;
     }
-    printf("xadd sensor_data * sensor_id 1234: %s\n", reply->str);
+    printf("XADD sensor_data * sensor_id 1234: %s\n", reply->str);
     freeReplyObject(reply);
 
     //lists

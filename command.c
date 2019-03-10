@@ -364,24 +364,6 @@ redis_parse_cmd(struct cmd *r)
 
     for (p = r->cmd; p < cmd_end; p++) {
         ch = *p;
-        if (ch == LF) {
-            printf("\nDEBUG: CH = \\n \n");
-        } else if (ch == CR) {
-            printf("\nDEBUG: CH = \\r \n");
-        } else {
-            printf("\nDEBUG: CH = %s\n", &ch);    
-        }
-    }
-
-    for (p = r->cmd; p < cmd_end; p++) {
-        ch = *p;
-        if (ch == LF) {
-            printf("\nDEBUG: CH = \\n \n");
-        } else if (ch == CR) {
-            printf("\nDEBUG: CH = \\r \n");
-        } else {
-            printf("\nDEBUG: CH = %s\n", &ch);    
-        }
         
         switch (state) {
 
