@@ -23,6 +23,9 @@ Hiredis-vip fully contained and based on [Hiredis](https://github.com/redis/hire
 * **`SUPPORT Asynchronous API`**:
     * User can run commands with asynchronous mode.
 
+* **`!!! NEW !!! SUPPORT NOW PUBLISH COMMAND`**:
+    * Support `PUBLISH` now.
+
 ### CLUSTER API:
 
 ```c
@@ -163,6 +166,12 @@ anywhere in an argument:
 ```c
 reply = redisClusterCommand(clustercontext, "SET key:%s %s", myid, value);
 ```
+
+If you get an error like `reply is null[ctx get by node is null]` you have to setup your cluster context by calling
+```c
+redisClusterSetOptionRouteUseSlots(cc);
+```
+
 
 ### Cluster multi-key commands
 
