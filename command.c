@@ -194,6 +194,8 @@ redis_argn(struct cmd *r)
     case CMD_REQ_REDIS_HMSET:
     case CMD_REQ_REDIS_HSCAN:
 
+    case CMD_REQ_REDIS_XADD:
+
     case CMD_REQ_REDIS_LPUSH:
     case CMD_REQ_REDIS_RPUSH:
 
@@ -643,6 +645,11 @@ redis_parse_cmd(struct cmd *r)
                 if (str4icmp(m, 'a', 'u', 't', 'h')) {
                     r->type = CMD_REQ_REDIS_AUTH;
                     r->noforward = 1;
+                    break;
+                }
+
+                if (str4icmp(m, 'x', 'a', 'd', 'd')) {
+                    r->type = CMD_REQ_REDIS_XADD;
                     break;
                 }
 
