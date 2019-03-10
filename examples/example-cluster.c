@@ -31,10 +31,6 @@ int main(int argc, char **argv) {
     redisReply *reply;
 
     //Set up Redis Cluster Connection
-    //int tv_usec = 10000 * 1000;
-    //int tv_sec = tv_usec / 1000000L;
-    //tv_usec %= 1000000L;
-    //const struct timeval tv = {tv_sec, tv_usec};
 
     cc = redisClusterContextInit();
     redisClusterSetOptionRouteUseSlots(cc);
@@ -53,7 +49,7 @@ int main(int argc, char **argv) {
     //Pub/Sub (Unsure)
     //Cluster Nodes (Unsupported)
     //Cluster Info (Unsupported)
-    
+
     // publish
     reply = redisClusterCommand(cc, "publish channel msg");
     if (reply == NULL) {
@@ -63,17 +59,6 @@ int main(int argc, char **argv) {
     }
     printf("publish channel msg:%d\n", reply->integer);
     freeReplyObject(reply);
-    return 0;
-
-    // xadd
-    //reply = redisClusterCommand(cc, "xadd mystream * key value");
-    //if (reply == NULL) {
-    //    printf("Error with xadd, reply is null[%s]\n", cc->errstr);
-    //    redisClusterFree(cc);
-    //    return -1;
-   // }
-    //printf("publish channel msg:%s\n", reply->str);
-   // freeReplyObject(reply);
 
     //lists
     int listCounter;
