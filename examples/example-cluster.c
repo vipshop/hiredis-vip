@@ -46,9 +46,18 @@ int main(int argc, char **argv) {
     }
 
     //Ping (Unsupported)
-    //Pub/Sub (unsure)
+    //Pub/Sub (Unsure)
     //Cluster Nodes (Unsupported)
     //Cluster Info (Unsupported)
+
+    // publish
+    reply = redisClusterCommand(cc, "publish channel msg");
+    if (reply == NULL) {
+        printf("Error with publish, reply is null[%s]\n", cc->errstr);
+        redisClusterFree(cc);
+        return -1;
+    }
+    printf("publish channel msg:%d\n", reply->integer);   
 
     // xadd
     reply = redisClusterCommand(cc, "xadd sensor_data * sensor_id 1234");

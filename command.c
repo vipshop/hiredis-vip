@@ -213,6 +213,8 @@ redis_argn(struct cmd *r)
     case CMD_REQ_REDIS_PFADD:
     case CMD_REQ_REDIS_PFMERGE:
 
+    case CMD_REQ_REDIS_PUBLISH:
+
     case CMD_REQ_REDIS_ZADD:
     case CMD_REQ_REDIS_ZINTERSTORE:
     case CMD_REQ_REDIS_ZRANGE:
@@ -362,11 +364,30 @@ redis_parse_cmd(struct cmd *r)
 
     for (p = r->cmd; p < cmd_end; p++) {
         ch = *p;
+        if (ch == LF) {
+            printf("\nDEBUG: CH = \\n \n");
+        } else if (ch == CR) {
+            printf("\nDEBUG: CH = \\r \n");
+        } else {
+            printf("\nDEBUG: CH = %s\n", &ch);    
+        }
+    }
 
+    for (p = r->cmd; p < cmd_end; p++) {
+        ch = *p;
+        if (ch == LF) {
+            printf("\nDEBUG: CH = \\n \n");
+        } else if (ch == CR) {
+            printf("\nDEBUG: CH = \\r \n");
+        } else {
+            printf("\nDEBUG: CH = %s\n", &ch);    
+        }
+        
         switch (state) {
 
         case SW_START:
         case SW_NARG:
+            
             if (token == NULL) {
                 if (ch != '*') {
                     goto error;
@@ -376,6 +397,8 @@ redis_parse_cmd(struct cmd *r)
                 r->narg_start = p;
                 rnarg = 0;
                 state = SW_NARG;
+                
+                
             } else if (isdigit(ch)) {
                 rnarg = rnarg * 10 + (uint32_t)(ch - '0');
             } else if (ch == CR) {
@@ -386,6 +409,7 @@ redis_parse_cmd(struct cmd *r)
                 r->narg_end = p;
                 token = NULL;
                 state = SW_NARG_LF;
+                
             } else {
                 goto error;
             }
@@ -393,6 +417,7 @@ redis_parse_cmd(struct cmd *r)
             break;
 
         case SW_NARG_LF:
+            
             switch (ch) {
             case LF:
                 state = SW_REQ_TYPE_LEN;
@@ -405,6 +430,7 @@ redis_parse_cmd(struct cmd *r)
             break;
 
         case SW_REQ_TYPE_LEN:
+            
             if (token == NULL) {
                 if (ch != '$') {
                     goto error;
@@ -420,6 +446,7 @@ redis_parse_cmd(struct cmd *r)
                 rnarg--;
                 token = NULL;
                 state = SW_REQ_TYPE_LEN_LF;
+                
             } else {
                 goto error;
             }
@@ -427,6 +454,7 @@ redis_parse_cmd(struct cmd *r)
             break;
 
         case SW_REQ_TYPE_LEN_LF:
+            
             switch (ch) {
             case LF:
                 state = SW_REQ_TYPE;
@@ -439,6 +467,7 @@ redis_parse_cmd(struct cmd *r)
             break;
 
         case SW_REQ_TYPE:
+            
             if (token == NULL) {
                 token = p;
             }
@@ -878,6 +907,12 @@ redis_parse_cmd(struct cmd *r)
                     break;
                 }
 
+                if (str7icmp(m, 'p', 'u', 'b', 'l', 'i', 's', 'h')) {
+                    
+                    r->type = CMD_REQ_REDIS_PUBLISH;
+                    break;
+                }
+
                 break;
 
             case 8:
@@ -1043,6 +1078,7 @@ redis_parse_cmd(struct cmd *r)
             break;
 
         case SW_REQ_TYPE_LF:
+            
             switch (ch) {
             case LF:
                 if (redis_argz(r)) {
@@ -1061,6 +1097,7 @@ redis_parse_cmd(struct cmd *r)
             break;
 
         case SW_KEY_LEN:
+            
             if (token == NULL) {
                 if (ch != '$') {
                     goto error;
@@ -1077,6 +1114,7 @@ redis_parse_cmd(struct cmd *r)
                 rnarg--;
                 token = NULL;
                 state = SW_KEY_LEN_LF;
+                
             } else {
                 goto error;
             }
@@ -1084,6 +1122,7 @@ redis_parse_cmd(struct cmd *r)
             break;
 
         case SW_KEY_LEN_LF:
+            
             switch (ch) {
             case LF:
                 state = SW_KEY;
@@ -1096,6 +1135,7 @@ redis_parse_cmd(struct cmd *r)
             break;
 
         case SW_KEY:
+            
             if (token == NULL) {
                 token = p;
             }
@@ -1132,8 +1172,10 @@ redis_parse_cmd(struct cmd *r)
             break;
 
         case SW_KEY_LF:
+            
             switch (ch) {
             case LF:
+                
                 if (redis_arg0(r)) {
                     if (rnarg != 0) {
                         goto error;
@@ -1145,11 +1187,13 @@ redis_parse_cmd(struct cmd *r)
                     }
                     state = SW_ARG1_LEN;
                 } else if (redis_arg2(r)) {
+                    
                     if (rnarg != 2) {
                         goto error;
                     }
                     state = SW_ARG1_LEN;
                 } else if (redis_arg3(r)) {
+                    
                     if (rnarg != 3) {
                         goto error;
                     }
@@ -1190,6 +1234,7 @@ redis_parse_cmd(struct cmd *r)
             break;
 
         case SW_ARG1_LEN:
+            
             if (token == NULL) {
                 if (ch != '$') {
                     goto error;
@@ -1225,6 +1270,7 @@ redis_parse_cmd(struct cmd *r)
                 }
                 */
                 state = SW_ARG1_LEN_LF;
+                
             } else {
                 goto error;
             }
@@ -1232,6 +1278,7 @@ redis_parse_cmd(struct cmd *r)
             break;
 
         case SW_ARG1_LEN_LF:
+            
             switch (ch) {
             case LF:
                 state = SW_ARG1;
@@ -1244,6 +1291,7 @@ redis_parse_cmd(struct cmd *r)
             break;
 
         case SW_ARG1:
+            
             m = p + rlen;
             if (m >= cmd_end) {
                 //rlen -= (uint32_t)(b->last - p);
@@ -1265,6 +1313,7 @@ redis_parse_cmd(struct cmd *r)
             break;
 
         case SW_ARG1_LF:
+            
             switch (ch) {
             case LF:
                 if (redis_arg1(r)) {
@@ -1310,6 +1359,7 @@ redis_parse_cmd(struct cmd *r)
             break;
 
         case SW_ARG2_LEN:
+            
             if (token == NULL) {
                 if (ch != '$') {
                     goto error;
@@ -1325,6 +1375,7 @@ redis_parse_cmd(struct cmd *r)
                 rnarg--;
                 token = NULL;
                 state = SW_ARG2_LEN_LF;
+                
             } else {
                 goto error;
             }
@@ -1332,6 +1383,7 @@ redis_parse_cmd(struct cmd *r)
             break;
 
         case SW_ARG2_LEN_LF:
+            
             switch (ch) {
             case LF:
                 state = SW_ARG2;
@@ -1344,6 +1396,7 @@ redis_parse_cmd(struct cmd *r)
             break;
 
         case SW_ARG2:
+            
             if (token == NULL && redis_argeval(r)) {
                 /*
                  * For EVAL/EVALSHA, ARG2 represents the # key/arg pairs which must
@@ -1402,6 +1455,7 @@ redis_parse_cmd(struct cmd *r)
             break;
 
         case SW_ARG2_LF:
+            
             switch (ch) {
             case LF:
                 if (redis_arg2(r)) {
@@ -1437,6 +1491,7 @@ redis_parse_cmd(struct cmd *r)
             break;
 
         case SW_ARG3_LEN:
+            
             if (token == NULL) {
                 if (ch != '$') {
                     goto error;
@@ -1452,6 +1507,7 @@ redis_parse_cmd(struct cmd *r)
                 rnarg--;
                 token = NULL;
                 state = SW_ARG3_LEN_LF;
+                
             } else {
                 goto error;
             }
@@ -1459,6 +1515,7 @@ redis_parse_cmd(struct cmd *r)
             break;
 
         case SW_ARG3_LEN_LF:
+            
             switch (ch) {
             case LF:
                 state = SW_ARG3;
@@ -1471,6 +1528,7 @@ redis_parse_cmd(struct cmd *r)
             break;
 
         case SW_ARG3:
+            
             m = p + rlen;
             if (m >= cmd_end) {
                 //rlen -= (uint32_t)(b->last - p);
@@ -1491,6 +1549,7 @@ redis_parse_cmd(struct cmd *r)
             break;
 
         case SW_ARG3_LF:
+            
             switch (ch) {
             case LF:
                 if (redis_arg3(r)) {
@@ -1516,6 +1575,7 @@ redis_parse_cmd(struct cmd *r)
             break;
 
         case SW_ARGN_LEN:
+            
             if (token == NULL) {
                 if (ch != '$') {
                     goto error;
@@ -1531,6 +1591,7 @@ redis_parse_cmd(struct cmd *r)
                 rnarg--;
                 token = NULL;
                 state = SW_ARGN_LEN_LF;
+                
             } else {
                 goto error;
             }
@@ -1538,6 +1599,7 @@ redis_parse_cmd(struct cmd *r)
             break;
 
         case SW_ARGN_LEN_LF:
+            
             switch (ch) {
             case LF:
                 state = SW_ARGN;
@@ -1550,6 +1612,7 @@ redis_parse_cmd(struct cmd *r)
             break;
 
         case SW_ARGN:
+            
             m = p + rlen;
             if (m >= cmd_end) {
                 //rlen -= (uint32_t)(b->last - p);
@@ -1570,6 +1633,7 @@ redis_parse_cmd(struct cmd *r)
             break;
 
         case SW_ARGN_LF:
+            
             switch (ch) {
             case LF:
                 if (redis_argn(r) || redis_argeval(r)) {
