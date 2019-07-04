@@ -578,7 +578,23 @@ static cluster_node *node_get_with_nodes(
         goto error;
     }
     node->host = ip_port[0];
-    node->port = hi_atoi(ip_port[1], sdslen(ip_port[1]));
+
+    /*
+      With new release of redis 4.0, cluster nodes output is no longer backward compatible.
+      more info on : https://github.com/antirez/redis/issues/4186
+    */
+
+    char*  cluster_bus_port = strchr(ip_port[1], '@') ;
+    if(cluster_bus_port != NULL)
+    {
+        int len = cluster_bus_port - ip_port[1];
+        node->port = hi_atoi(ip_port[1], len);
+    }
+    else
+    {
+        node->port = hi_atoi(ip_port[1], sdslen(ip_port[1]));
+    }
+
     node->role = role;
 
     sdsfree(ip_port[1]);
