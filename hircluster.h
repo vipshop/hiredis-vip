@@ -142,6 +142,8 @@ int test_cluster_update_route(redisClusterContext *cc);
 struct dict *parse_cluster_nodes(redisClusterContext *cc, char *str, int str_len, int flags);
 struct dict *parse_cluster_slots(redisClusterContext *cc, redisReply *reply, int flags);
 
+void *redisClusterBroadcastCommand(redisClusterContext *cc, const char *format, ...);
+redisReply *redisCLusterCommandSendAll(redisClusterContext *cc,char *cmd,size_t len);
 
 /*############redis cluster async############*/
 
