@@ -5073,3 +5073,18 @@ void redisClusterAsyncFree(redisClusterAsyncContext *acc)
     hi_free(acc);
 }
 
+void print_reply(redisReply *reply){
+    switch(reply->type){
+        case REDIS_REPLY_STRING:printf("REDIS_REPLY_STRING, Reply:%s\n",reply->str);break;
+        case REDIS_REPLY_ARRAY:printf("REDIS_REPLY_ARRAY with %d elements\n",reply->elements);
+            for(int i=0;i<(reply->elements);i++){
+                print_reply((reply->element)[i]);
+            }
+            break;
+        case REDIS_REPLY_INTEGER:printf("REDIS_REPLY_INTEGER, Reply:%lld\n",reply->integer);break; 
+        case REDIS_REPLY_NIL:printf("REDIS_REPLY_NIL\n");break;
+        case REDIS_REPLY_STATUS:printf("REDIS_REPLY_STATUS, Reply:%s\n",reply->str);break;
+        case REDIS_REPLY_ERROR:printf("REDIS_REPLY_ERROR, Reply:%s\n",reply->str);break;
+        default: printf("Unknown Reply Type");
+    }
+}

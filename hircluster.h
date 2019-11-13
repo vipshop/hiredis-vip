@@ -144,7 +144,7 @@ struct dict *parse_cluster_slots(redisClusterContext *cc, redisReply *reply, int
 
 void *redisClusterBroadcastCommand(redisClusterContext *cc, const char *format, ...);
 redisReply *redisCLusterCommandSendAll(redisClusterContext *cc,char *cmd,size_t len);
-
+void print_reply(redisReply *reply);
 /*############redis cluster async############*/
 
 struct redisClusterAsyncContext;
