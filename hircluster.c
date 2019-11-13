@@ -4127,16 +4127,39 @@ redisReply *redisCLusterCommandSendAll(redisClusterContext *cc,char *cmd,size_t 
                 }
             } while (aux == NULL);
         }
+        redisReply *local_reply = (redisReply*)aux;
+        //Memory Allocation
         if(reply->element==NULL){
-            reply->element = hi_alloc(sizeof(*reply));
+            size_t members=1;
+            if(local_reply->type==REDIS_REPLY_ARRAY){
+                members=local_reply->elements;
+            }
+            reply->element = hi_alloc(members*sizeof(*reply));
         }
         else{
-            reply->element = hi_realloc(reply->element,(elements+1)* sizeof(*reply));
+            if(local_reply->type==REDIS_REPLY_ARRAY){
+                reply->element = hi_realloc(reply->element,(elements+local_reply->elements)* sizeof(*reply));
+            }
+            else{
+                reply->element = hi_realloc(reply->element,(elements+1)* sizeof(*reply));
+            }
+            
         }
-        reply->element[elements] = (redisReply*)aux;
-        elements++;
+        //Adding element within array
+        if(local_reply->type==REDIS_REPLY_ARRAY){
+            for(int i=0;i<local_reply->elements;i++){
+                reply->element[elements] = local_reply->element[i];    
+                elements++;
+            }
+            local_reply->elements=NULL;
+            freeReplyObject(local_reply);
+        }
+        else{
+            reply->element[elements] = local_reply;
+            elements++;
+        } 
     }
-    reply->elements = elements;
+    reply->elements=elements;
     dictReleaseIterator(di);
     return reply;
 }
