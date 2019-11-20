@@ -128,6 +128,9 @@ void *redisClustervCommand(redisClusterContext *cc, const char *format, va_list 
 void *redisClusterCommand(redisClusterContext *cc, const char *format, ...);
 void *redisClusterCommandArgv(redisClusterContext *cc, int argc, const char **argv, const size_t *argvlen);
 
+int slot_get_by_command(redisClusterContext *cc, char *cmd, int len);
+struct cluster_node *node_get_by_key(redisClusterContext *cc, char *key, int len);
+struct cluster_node *node_get_by_addr(redisClusterContext *cc, const char *addr);
 redisContext *ctx_get_by_node(redisClusterContext *cc, struct cluster_node *node);
 
 int redisClusterAppendFormattedCommand(redisClusterContext *cc, char *cmd, int len);
