@@ -46,6 +46,7 @@ redis_arg0(struct cmd *r)
 
     case CMD_REQ_REDIS_DECR:
     case CMD_REQ_REDIS_GET:
+    case CMD_REQ_REDIS_KEYS:
     case CMD_REQ_REDIS_INCR:
     case CMD_REQ_REDIS_STRLEN:
 
@@ -485,6 +486,11 @@ redis_parse_cmd(struct cmd *r)
                 break;
 
             case 4:
+                if (str4icmp(m, 'k', 'e', 'y', 's')) {
+                    r->type = CMD_REQ_REDIS_KEYS;
+                    break;
+                }
+
                 if (str4icmp(m, 'p', 't', 't', 'l')) {
                     r->type = CMD_REQ_REDIS_PTTL;
                     break;
