@@ -10,19 +10,19 @@ ifeq ($(USE_SSL),1)
 EXAMPLES+=hiredis-example-ssl hiredis-example-libevent-ssl
 endif
 TESTS=hiredis-test
-LIBNAME=libhiredis
+LIBNAME=libhiredis-vip
 SSL_LIBNAME=libhiredis_ssl
-PKGCONFNAME=hiredis.pc
+PKGCONFNAME=hiredis-vip.pc
 SSL_PKGCONFNAME=hiredis_ssl.pc
 
-HIREDIS_MAJOR=$(shell grep HIREDIS_MAJOR hiredis.h | awk '{print $$3}')
-HIREDIS_MINOR=$(shell grep HIREDIS_MINOR hiredis.h | awk '{print $$3}')
-HIREDIS_PATCH=$(shell grep HIREDIS_PATCH hiredis.h | awk '{print $$3}')
-HIREDIS_SONAME=$(shell grep HIREDIS_SONAME hiredis.h | awk '{print $$3}')
+HIREDIS_VIP_MAJOR=$(shell grep HIREDIS_VIP_MAJOR hircluster.h | awk '{print $$3}')
+HIREDIS_VIP_MINOR=$(shell grep HIREDIS_VIP_MINOR hircluster.h | awk '{print $$3}')
+HIREDIS_VIP_PATCH=$(shell grep HIREDIS_VIP_PATCH hircluster.h | awk '{print $$3}')
+HIREDIS_VIP_SONAME=$(shell grep HIREDIS_VIP_SONAME hircluster.h | awk '{print $$3}')
 
 # Installation related variables and target
 PREFIX?=/usr/local
-INCLUDE_PATH?=include/hiredis
+INCLUDE_PATH?=include/hiredis-vip
 LIBRARY_PATH?=lib
 PKGCONF_PATH?=pkgconfig
 INSTALL_INCLUDE_PATH= $(DESTDIR)$(PREFIX)/$(INCLUDE_PATH)
@@ -53,7 +53,7 @@ REAL_LDFLAGS=$(LDFLAGS)
 DYLIBSUFFIX=so
 STLIBSUFFIX=a
 DYLIB_MINOR_NAME=$(LIBNAME).$(DYLIBSUFFIX).$(HIREDIS_SONAME)
-DYLIB_MAJOR_NAME=$(LIBNAME).$(DYLIBSUFFIX).$(HIREDIS_MAJOR)
+DYLIB_MAJOR_NAME=$(LIBNAME).$(DYLIBSUFFIX).$(HIREDIS_VIP_MAJOR)
 DYLIBNAME=$(LIBNAME).$(DYLIBSUFFIX)
 SSL_DYLIBNAME=$(SSL_LIBNAME).$(DYLIBSUFFIX)
 DYLIB_MAKE_CMD=$(CC) -shared -Wl,-soname,$(DYLIB_MINOR_NAME)
@@ -214,17 +214,17 @@ dep:
 
 INSTALL?= cp -pPR
 
-$(PKGCONFNAME): hiredis.h
+$(PKGCONFNAME): hircluster.h
 	@echo "Generating $@ for pkgconfig..."
 	@echo prefix=$(PREFIX) > $@
 	@echo exec_prefix=\$${prefix} >> $@
 	@echo libdir=$(PREFIX)/$(LIBRARY_PATH) >> $@
 	@echo includedir=$(PREFIX)/$(INCLUDE_PATH) >> $@
 	@echo >> $@
-	@echo Name: hiredis >> $@
-	@echo Description: Minimalistic C client library for Redis. >> $@
-	@echo Version: $(HIREDIS_MAJOR).$(HIREDIS_MINOR).$(HIREDIS_PATCH) >> $@
-	@echo Libs: -L\$${libdir} -lhiredis >> $@
+	@echo Name: hiredis-vip >> $@
+	@echo Description: Minimalistic C client library for Redis with cluster support. >> $@
+	@echo Version: $(HIREDIS_VIP_MAJOR).$(HIREDIS_VIP_MINOR).$(HIREDIS_VIP_PATCH) >> $@
+	@echo Libs: -L\$${libdir} -lhiredis-vip >> $@
 	@echo Cflags: -I\$${includedir} -D_FILE_OFFSET_BITS=64 >> $@
 
 $(SSL_PKGCONFNAME): hiredis.h
@@ -236,14 +236,14 @@ $(SSL_PKGCONFNAME): hiredis.h
 	@echo >> $@
 	@echo Name: hiredis_ssl >> $@
 	@echo Description: SSL Support for hiredis. >> $@
-	@echo Version: $(HIREDIS_MAJOR).$(HIREDIS_MINOR).$(HIREDIS_PATCH) >> $@
-	@echo Requires: hiredis >> $@
+	@echo Version: $(HIREDIS_VIP_MAJOR).$(HIREDIS_VIP_MINOR).$(HIREDIS_VIP_PATCH) >> $@
+	@echo Requires: hiredis-vip >> $@
 	@echo Libs: -L\$${libdir} -lhiredis_ssl >> $@
 	@echo Libs.private: -lssl -lcrypto >> $@
 
 install: $(DYLIBNAME) $(STLIBNAME) $(PKGCONFNAME)
 	mkdir -p $(INSTALL_INCLUDE_PATH) $(INSTALL_INCLUDE_PATH)/adapters $(INSTALL_LIBRARY_PATH)
-	$(INSTALL) hiredis.h async.h read.h sds.h $(INSTALL_INCLUDE_PATH)
+	$(INSTALL) hiredis.h async.h read.h sds.h hircluster.h adlist.h dict.h hiarray.h $(INSTALL_INCLUDE_PATH)
 	$(INSTALL) adapters/*.h $(INSTALL_INCLUDE_PATH)/adapters
 	$(INSTALL) $(DYLIBNAME) $(INSTALL_LIBRARY_PATH)/$(DYLIB_MINOR_NAME)
 	cd $(INSTALL_LIBRARY_PATH) && ln -sf $(DYLIB_MINOR_NAME) $(DYLIBNAME)
