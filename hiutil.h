@@ -4,6 +4,10 @@
 #include <stdarg.h>
 #include <stdint.h>
 #include <sys/types.h>
+#if defined(_MSC_VER)
+#include <BaseTsd.h>
+typedef SSIZE_T ssize_t;
+#endif
 
 #define HI_OK        0
 #define HI_ERROR    -1
@@ -134,6 +138,7 @@ typedef int rstatus_t; /* return type */
     _uint_len((uint32_t)_n)
 
 
+#ifndef WIN32
 int hi_set_blocking(int sd);
 int hi_set_nonblocking(int sd);
 int hi_set_reuseaddr(int sd);
@@ -144,6 +149,7 @@ int hi_set_rcvbuf(int sd, int size);
 int hi_get_soerror(int sd);
 int hi_get_sndbuf(int sd);
 int hi_get_rcvbuf(int sd);
+#endif
 
 int _hi_atoi(uint8_t *line, size_t n);
 void _hi_itoa(uint8_t *s, int num);
@@ -186,6 +192,7 @@ void _hi_free(void *ptr, const char *name, int line);
 #define hi_strndup(_s, _n)              \
     strndup((char *)(_s), (size_t)(_n));
 
+#ifndef WIN32
 /*
  * Wrappers to send or receive n byte message on a blocking
  * socket descriptor.
@@ -195,6 +202,7 @@ void _hi_free(void *ptr, const char *name, int line);
 
 #define hi_recvn(_s, _b, _n)    \
     _hi_recvn(_s, _b, (size_t)(_n))
+#endif
 
 /*
  * Wrappers to read or write data to/from (multiple) buffers
@@ -212,8 +220,10 @@ void _hi_free(void *ptr, const char *name, int line);
 #define hi_writev(_d, _b, _n)   \
     writev(_d, _b, (int)(_n))
 
+#ifndef WIN32
 ssize_t _hi_sendn(int sd, const void *vptr, size_t n);
 ssize_t _hi_recvn(int sd, void *vptr, size_t n);
+#endif
 
 /*
  * Wrappers for defining custom assert based on whether macro

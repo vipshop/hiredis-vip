@@ -2,23 +2,23 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <string.h>
-#include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
+#include "win32.h"
 
+#ifndef WIN32
 #include <sys/time.h>
-#include <sys/types.h>
-
 #include <netinet/in.h>
 #include <netinet/tcp.h>
-
-
+#endif
+#include <sys/types.h>
 #include "hiutil.h"
 
 #ifdef HI_HAVE_BACKTRACE
 # include <execinfo.h>
 #endif
 
+#ifndef WIN32
 int
 hi_set_blocking(int sd)
 {
@@ -161,6 +161,7 @@ hi_get_rcvbuf(int sd)
 
     return size;
 }
+#endif
 
 int
 _hi_atoi(uint8_t *line, size_t n)
@@ -430,6 +431,7 @@ _scnprintf(char *buf, size_t size, const char *fmt, ...)
     return n;
 }
 
+#ifndef WIN32
 /*
  * Send n bytes on a blocking descriptor
  */
@@ -491,6 +493,7 @@ _hi_recvn(int sd, void *vptr, size_t n)
 
     return (ssize_t)(n - nleft);
 }
+#endif
 
 /*
  * Return the current time in microseconds since Epoch
@@ -498,8 +501,18 @@ _hi_recvn(int sd, void *vptr, size_t n)
 int64_t
 hi_usec_now(void)
 {
-    struct timeval now;
     int64_t usec;
+#ifdef _MSC_VER
+    LARGE_INTEGER counter, frequency;
+
+    if (!QueryPerformanceCounter(&counter) || !QueryPerformanceFrequency(&frequency))
+    {
+        return -1;
+    }
+
+    usec = counter.QuadPart * 1000000 / frequency.QuadPart;
+#else
+    struct timeval now;
     int status;
 
     status = gettimeofday(&now, NULL);
@@ -508,6 +521,7 @@ hi_usec_now(void)
     }
 
     usec = (int64_t)now.tv_sec * 1000000LL + (int64_t)now.tv_usec;
+#endif
 
     return usec;
 }

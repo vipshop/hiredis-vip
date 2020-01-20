@@ -15,15 +15,12 @@ typedef struct redisLibuvEvents {
 
 static void redisLibuvPoll(uv_poll_t* handle, int status, int events) {
   redisLibuvEvents* p = (redisLibuvEvents*)handle->data;
+  int ev = (status ? p->events : events);
 
-  if (status != 0) {
-    return;
-  }
-
-  if (events & UV_READABLE) {
+  if (p->context != NULL && (ev & UV_READABLE)) {
     redisAsyncHandleRead(p->context);
   }
-  if (events & UV_WRITABLE) {
+  if (p->context != NULL && (ev & UV_WRITABLE)) {
     redisAsyncHandleWrite(p->context);
   }
 }
@@ -83,6 +80,7 @@ static void on_close(uv_handle_t* handle) {
 static void redisLibuvCleanup(void *privdata) {
   redisLibuvEvents* p = (redisLibuvEvents*)privdata;
 
+  p->context = NULL; // indicate that context might no longer exist
   uv_close((uv_handle_t*)&p->handle, on_close);
 }
 
@@ -118,5 +116,4 @@ static int redisLibuvAttach(redisAsyncContext* ac, uv_loop_t* loop) {
 
   return REDIS_OK;
 }
-
 #endif

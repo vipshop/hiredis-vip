@@ -6,12 +6,25 @@
 #include <errno.h>
 #include <ctype.h>
 
+#include "win32.h"
 #include "hircluster.h"
 #include "hiutil.h"
 #include "adlist.h"
 #include "hiarray.h"
 #include "command.h"
 #include "dict.c"
+
+// Cluster errors are offset by 100 to be sufficiently out of range of
+// standard Redis errors
+#define REDIS_ERR_CLUSTER_TOO_MANY_REDIRECT 100
+
+#define REDIS_ERROR_MOVED 			"MOVED"
+#define REDIS_ERROR_ASK 			"ASK"
+#define REDIS_ERROR_TRYAGAIN 		"TRYAGAIN"
+#define REDIS_ERROR_CROSSSLOT 		"CROSSSLOT"
+#define REDIS_ERROR_CLUSTERDOWN 	"CLUSTERDOWN"
+
+#define REDIS_STATUS_OK 			"OK"
 
 #define REDIS_COMMAND_CLUSTER_NODES "CLUSTER NODES"
 #define REDIS_COMMAND_CLUSTER_SLOTS "CLUSTER SLOTS"
@@ -205,7 +218,7 @@ static void __redisClusterSetError(redisClusterContext *cc, int type, const char
     } else {
         /* Only REDIS_ERR_IO may lack a description! */
         assert(type == REDIS_ERR_IO);
-        __redis_strerror_r(errno, cc->errstr, sizeof(cc->errstr));
+        strerror_r(errno, cc->errstr, sizeof(cc->errstr));
     }
 }
 
@@ -652,7 +665,7 @@ static void cluster_nodes_swap_ctx(dict *nodes_f, dict *nodes_t)
 static int
 cluster_slot_start_cmp(const void *t1, const void *t2)
 {
-    const cluster_slot **s1 = t1, **s2 = t2;
+    const cluster_slot * const *s1 = t1, * const *s2 = t2;
 
     return (*s1)->start > (*s2)->start?1:-1;
 }
@@ -4241,7 +4254,7 @@ static void __redisClusterAsyncSetError(redisClusterAsyncContext *acc,
     } else {
         /* Only REDIS_ERR_IO may lack a description! */
         assert(type == REDIS_ERR_IO);
-        __redis_strerror_r(errno, acc->errstr, sizeof(acc->errstr));
+        strerror_r(errno, acc->errstr, sizeof(acc->errstr));
     }
 }
 
@@ -4364,7 +4377,7 @@ redisAsyncContext * actx_get_by_node(redisClusterAsyncContext *acc,
     }
 
     ac->data = node;
-    ac->dataHandler = unlinkAsyncContextAndNode;
+    ac->cleanup = unlinkAsyncContextAndNode;
     node->acon = ac;
     
     return ac;

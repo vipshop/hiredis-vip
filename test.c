@@ -3,7 +3,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#include <sys/socket.h>
 #include <sys/time.h>
+#include <netdb.h>
 #include <assert.h>
 #include <unistd.h>
 #include <signal.h>
@@ -11,12 +13,16 @@
 #include <limits.h>
 
 #include "hiredis.h"
+#ifdef HIREDIS_TEST_SSL
+#include "hiredis_ssl.h"
+#endif
 #include "net.h"
 
 enum connection_type {
     CONN_TCP,
     CONN_UNIX,
-    CONN_FD
+    CONN_FD,
+    CONN_SSL
 };
 
 struct config {
@@ -30,7 +36,15 @@ struct config {
 
     struct {
         const char *path;
-    } unix;
+    } unix_sock;
+
+    struct {
+        const char *host;
+        int port;
+        const char *ca_cert;
+        const char *cert;
+        const char *key;
+    } ssl;
 };
 
 /* The following lines make up our testing "framework" :) */
@@ -91,16 +105,32 @@ static int disconnect(redisContext *c, int keep_fd) {
     return -1;
 }
 
-static redisContext *connect(struct config config) {
+static void do_ssl_handshake(redisContext *c, struct config config) {
+#ifdef HIREDIS_TEST_SSL
+    redisSecureConnection(c, config.ssl.ca_cert, config.ssl.cert, config.ssl.key, NULL);
+    if (c->err) {
+        printf("SSL error: %s\n", c->errstr);
+        redisFree(c);
+        exit(1);
+    }
+#else
+    (void) c;
+    (void) config;
+#endif
+}
+
+static redisContext *do_connect(struct config config) {
     redisContext *c = NULL;
 
     if (config.type == CONN_TCP) {
         c = redisConnect(config.tcp.host, config.tcp.port);
+    } else if (config.type == CONN_SSL) {
+        c = redisConnect(config.ssl.host, config.ssl.port);
     } else if (config.type == CONN_UNIX) {
-        c = redisConnectUnix(config.unix.path);
+        c = redisConnectUnix(config.unix_sock.path);
     } else if (config.type == CONN_FD) {
         /* Create a dummy connection just to get an fd to inherit */
-        redisContext *dummy_ctx = redisConnectUnix(config.unix.path);
+        redisContext *dummy_ctx = redisConnectUnix(config.unix_sock.path);
         if (dummy_ctx) {
             int fd = disconnect(dummy_ctx, 1);
             printf("Connecting to inherited fd %d\n", fd);
@@ -119,7 +149,19 @@ static redisContext *connect(struct config config) {
         exit(1);
     }
 
+    if (config.type == CONN_SSL) {
+        do_ssl_handshake(c, config);
+    }
+
     return select_database(c);
+}
+
+static void do_reconnect(redisContext *c, struct config config) {
+    redisReconnect(c);
+
+    if (config.type == CONN_SSL) {
+        do_ssl_handshake(c, config);
+    }
 }
 
 static void test_format_commands(void) {
@@ -224,6 +266,22 @@ static void test_format_commands(void) {
     test_cond(strncmp(cmd,"*3\r\n$3\r\nSET\r\n$7\r\nfoo\0xxx\r\n$3\r\nbar\r\n",len) == 0 &&
         len == 4+4+(3+2)+4+(7+2)+4+(3+2));
     free(cmd);
+
+    sds sds_cmd;
+
+    sds_cmd = NULL;
+    test("Format command into sds by passing argc/argv without lengths: ");
+    len = redisFormatSdsCommandArgv(&sds_cmd,argc,argv,NULL);
+    test_cond(strncmp(sds_cmd,"*3\r\n$3\r\nSET\r\n$3\r\nfoo\r\n$3\r\nbar\r\n",len) == 0 &&
+        len == 4+4+(3+2)+4+(3+2)+4+(3+2));
+    sdsfree(sds_cmd);
+
+    sds_cmd = NULL;
+    test("Format command into sds by passing argc/argv with lengths: ");
+    len = redisFormatSdsCommandArgv(&sds_cmd,argc,argv,lens);
+    test_cond(strncmp(sds_cmd,"*3\r\n$3\r\nSET\r\n$7\r\nfoo\0xxx\r\n$3\r\nbar\r\n",len) == 0 &&
+        len == 4+4+(3+2)+4+(7+2)+4+(3+2));
+    sdsfree(sds_cmd);
 }
 
 static void test_append_formatted_commands(struct config config) {
@@ -232,7 +290,7 @@ static void test_append_formatted_commands(struct config config) {
     char *cmd;
     int len;
 
-    c = connect(config);
+    c = do_connect(config);
 
     test("Append format command: ");
 
@@ -286,6 +344,82 @@ static void test_reply_reader(void) {
               strncasecmp(reader->errstr,"No support for",14) == 0);
     redisReaderFree(reader);
 
+    test("Correctly parses LLONG_MAX: ");
+    reader = redisReaderCreate();
+    redisReaderFeed(reader, ":9223372036854775807\r\n",22);
+    ret = redisReaderGetReply(reader,&reply);
+    test_cond(ret == REDIS_OK &&
+            ((redisReply*)reply)->type == REDIS_REPLY_INTEGER &&
+            ((redisReply*)reply)->integer == LLONG_MAX);
+    freeReplyObject(reply);
+    redisReaderFree(reader);
+
+    test("Set error when > LLONG_MAX: ");
+    reader = redisReaderCreate();
+    redisReaderFeed(reader, ":9223372036854775808\r\n",22);
+    ret = redisReaderGetReply(reader,&reply);
+    test_cond(ret == REDIS_ERR &&
+              strcasecmp(reader->errstr,"Bad integer value") == 0);
+    freeReplyObject(reply);
+    redisReaderFree(reader);
+
+    test("Correctly parses LLONG_MIN: ");
+    reader = redisReaderCreate();
+    redisReaderFeed(reader, ":-9223372036854775808\r\n",23);
+    ret = redisReaderGetReply(reader,&reply);
+    test_cond(ret == REDIS_OK &&
+            ((redisReply*)reply)->type == REDIS_REPLY_INTEGER &&
+            ((redisReply*)reply)->integer == LLONG_MIN);
+    freeReplyObject(reply);
+    redisReaderFree(reader);
+
+    test("Set error when < LLONG_MIN: ");
+    reader = redisReaderCreate();
+    redisReaderFeed(reader, ":-9223372036854775809\r\n",23);
+    ret = redisReaderGetReply(reader,&reply);
+    test_cond(ret == REDIS_ERR &&
+              strcasecmp(reader->errstr,"Bad integer value") == 0);
+    freeReplyObject(reply);
+    redisReaderFree(reader);
+
+    test("Set error when array < -1: ");
+    reader = redisReaderCreate();
+    redisReaderFeed(reader, "*-2\r\n+asdf\r\n",12);
+    ret = redisReaderGetReply(reader,&reply);
+    test_cond(ret == REDIS_ERR &&
+              strcasecmp(reader->errstr,"Multi-bulk length out of range") == 0);
+    freeReplyObject(reply);
+    redisReaderFree(reader);
+
+    test("Set error when bulk < -1: ");
+    reader = redisReaderCreate();
+    redisReaderFeed(reader, "$-2\r\nasdf\r\n",11);
+    ret = redisReaderGetReply(reader,&reply);
+    test_cond(ret == REDIS_ERR &&
+              strcasecmp(reader->errstr,"Bulk string length out of range") == 0);
+    freeReplyObject(reply);
+    redisReaderFree(reader);
+
+#if LLONG_MAX > SIZE_MAX
+    test("Set error when array > SIZE_MAX: ");
+    reader = redisReaderCreate();
+    redisReaderFeed(reader, "*9223372036854775807\r\n+asdf\r\n",29);
+    ret = redisReaderGetReply(reader,&reply);
+    test_cond(ret == REDIS_ERR &&
+            strcasecmp(reader->errstr,"Multi-bulk length out of range") == 0);
+    freeReplyObject(reply);
+    redisReaderFree(reader);
+
+    test("Set error when bulk > SIZE_MAX: ");
+    reader = redisReaderCreate();
+    redisReaderFeed(reader, "$9223372036854775807\r\nasdf\r\n",28);
+    ret = redisReaderGetReply(reader,&reply);
+    test_cond(ret == REDIS_ERR &&
+            strcasecmp(reader->errstr,"Bulk string length out of range") == 0);
+    freeReplyObject(reply);
+    redisReaderFree(reader);
+#endif
+
     test("Works with NULL functions for reply: ");
     reader = redisReaderCreate();
     reader->fn = NULL;
@@ -328,31 +462,47 @@ static void test_reply_reader(void) {
 }
 
 static void test_free_null(void) {
-    void *redisContext = NULL;
+    void *redisCtx = NULL;
     void *reply = NULL;
 
     test("Don't fail when redisFree is passed a NULL value: ");
-    redisFree(redisContext);
-    test_cond(redisContext == NULL);
+    redisFree(redisCtx);
+    test_cond(redisCtx == NULL);
 
     test("Don't fail when freeReplyObject is passed a NULL value: ");
     freeReplyObject(reply);
     test_cond(reply == NULL);
 }
 
+#define HIREDIS_BAD_DOMAIN "idontexist-noreally.com"
 static void test_blocking_connection_errors(void) {
     redisContext *c;
+    struct addrinfo hints = {.ai_family = AF_INET};
+    struct addrinfo *ai_tmp = NULL;
 
-    test("Returns error when host cannot be resolved: ");
-    c = redisConnect((char*)"idontexist.test", 6379);
-    test_cond(c->err == REDIS_ERR_OTHER &&
-        (strcmp(c->errstr,"Name or service not known") == 0 ||
-         strcmp(c->errstr,"Can't resolve: idontexist.test") == 0 ||
-         strcmp(c->errstr,"nodename nor servname provided, or not known") == 0 ||
-         strcmp(c->errstr,"No address associated with hostname") == 0 ||
-         strcmp(c->errstr,"Temporary failure in name resolution") == 0 ||
-         strcmp(c->errstr,"no address associated with name") == 0));
-    redisFree(c);
+    int rv = getaddrinfo(HIREDIS_BAD_DOMAIN, "6379", &hints, &ai_tmp);
+    if (rv != 0) {
+        // Address does *not* exist
+        test("Returns error when host cannot be resolved: ");
+        // First see if this domain name *actually* resolves to NXDOMAIN
+        c = redisConnect(HIREDIS_BAD_DOMAIN, 6379);
+        test_cond(
+            c->err == REDIS_ERR_OTHER &&
+            (strcmp(c->errstr, "Name or service not known") == 0 ||
+             strcmp(c->errstr, "Can't resolve: " HIREDIS_BAD_DOMAIN) == 0 ||
+             strcmp(c->errstr, "Name does not resolve") == 0 ||
+             strcmp(c->errstr,
+                    "nodename nor servname provided, or not known") == 0 ||
+             strcmp(c->errstr, "No address associated with hostname") == 0 ||
+             strcmp(c->errstr, "Temporary failure in name resolution") == 0 ||
+             strcmp(c->errstr,
+                    "hostname nor servname provided, or not known") == 0 ||
+             strcmp(c->errstr, "no address associated with name") == 0));
+        redisFree(c);
+    } else {
+        printf("Skipping NXDOMAIN test. Found evil ISP!\n");
+        freeaddrinfo(ai_tmp);
+    }
 
     test("Returns error when the port is not open: ");
     c = redisConnect((char*)"localhost", 1);
@@ -360,7 +510,7 @@ static void test_blocking_connection_errors(void) {
         strcmp(c->errstr,"Connection refused") == 0);
     redisFree(c);
 
-    test("Returns error when the unix socket path doesn't accept connections: ");
+    test("Returns error when the unix_sock socket path doesn't accept connections: ");
     c = redisConnectUnix((char*)"/tmp/idontexist.sock");
     test_cond(c->err == REDIS_ERR_IO); /* Don't care about the message... */
     redisFree(c);
@@ -370,7 +520,7 @@ static void test_blocking_connection(struct config config) {
     redisContext *c;
     redisReply *reply;
 
-    c = connect(config);
+    c = do_connect(config);
 
     test("Is able to deliver commands: ");
     reply = redisCommand(c,"PING");
@@ -441,6 +591,11 @@ static void test_blocking_connection(struct config config) {
               strcasecmp(reply->element[1]->str,"pong") == 0);
     freeReplyObject(reply);
 
+    /* Make sure passing NULL to redisGetReply is safe */
+    test("Can pass NULL to redisGetReply: ");
+    assert(redisAppendCommand(c, "PING") == REDIS_OK);
+    test_cond(redisGetReply(c, NULL) == REDIS_OK);
+
     disconnect(c, 0);
 }
 
@@ -451,7 +606,7 @@ static void test_blocking_connection_timeouts(struct config config) {
     const char *cmd = "DEBUG SLEEP 3\r\n";
     struct timeval tv;
 
-    c = connect(config);
+    c = do_connect(config);
     test("Successfully completes a command when the timeout is not exceeded: ");
     reply = redisCommand(c,"SET foo fast");
     freeReplyObject(reply);
@@ -463,9 +618,10 @@ static void test_blocking_connection_timeouts(struct config config) {
     freeReplyObject(reply);
     disconnect(c, 0);
 
-    c = connect(config);
+    c = do_connect(config);
     test("Does not return a reply when the command times out: ");
-    s = write(c->fd, cmd, strlen(cmd));
+    redisAppendFormattedCommand(c, cmd, strlen(cmd));
+    s = c->funcs->write(c);
     tv.tv_sec = 0;
     tv.tv_usec = 10000;
     redisSetTimeout(c, tv);
@@ -474,15 +630,15 @@ static void test_blocking_connection_timeouts(struct config config) {
     freeReplyObject(reply);
 
     test("Reconnect properly reconnects after a timeout: ");
-    redisReconnect(c);
+    do_reconnect(c, config);
     reply = redisCommand(c, "PING");
     test_cond(reply != NULL && reply->type == REDIS_REPLY_STATUS && strcmp(reply->str, "PONG") == 0);
     freeReplyObject(reply);
 
     test("Reconnect properly uses owned parameters: ");
     config.tcp.host = "foo";
-    config.unix.path = "foo";
-    redisReconnect(c);
+    config.unix_sock.path = "foo";
+    do_reconnect(c, config);
     reply = redisCommand(c, "PING");
     test_cond(reply != NULL && reply->type == REDIS_REPLY_STATUS && strcmp(reply->str, "PONG") == 0);
     freeReplyObject(reply);
@@ -497,7 +653,7 @@ static void test_blocking_io_errors(struct config config) {
     int major, minor;
 
     /* Connect to target given by config. */
-    c = connect(config);
+    c = do_connect(config);
     {
         /* Find out Redis version to determine the path for the next test */
         const char *field = "redis_version:";
@@ -532,7 +688,7 @@ static void test_blocking_io_errors(struct config config) {
         strcmp(c->errstr,"Server closed the connection") == 0);
     redisFree(c);
 
-    c = connect(config);
+    c = do_connect(config);
     test("Returns I/O error on socket timeout: ");
     struct timeval tv = { 0, 1000 };
     assert(redisSetTimeout(c,tv) == REDIS_OK);
@@ -551,7 +707,7 @@ static void test_invalid_timeout_errors(struct config config) {
 
     c = redisConnectWithTimeout(config.tcp.host, config.tcp.port, config.tcp.timeout);
 
-    test_cond(c->err == REDIS_ERR_IO);
+    test_cond(c->err == REDIS_ERR_IO && strcmp(c->errstr, "Invalid timeout specified") == 0);
     redisFree(c);
 
     test("Set error when an invalid timeout sec value is given to redisConnectWithTimeout: ");
@@ -561,12 +717,12 @@ static void test_invalid_timeout_errors(struct config config) {
 
     c = redisConnectWithTimeout(config.tcp.host, config.tcp.port, config.tcp.timeout);
 
-    test_cond(c->err == REDIS_ERR_IO);
+    test_cond(c->err == REDIS_ERR_IO && strcmp(c->errstr, "Invalid timeout specified") == 0);
     redisFree(c);
 }
 
 static void test_throughput(struct config config) {
-    redisContext *c = connect(config);
+    redisContext *c = do_connect(config);
     redisReply **replies;
     int i, num;
     long long t1, t2;
@@ -599,6 +755,17 @@ static void test_throughput(struct config config) {
     free(replies);
     printf("\t(%dx LRANGE with 500 elements: %.3fs)\n", num, (t2-t1)/1000000.0);
 
+    replies = malloc(sizeof(redisReply*)*num);
+    t1 = usec();
+    for (i = 0; i < num; i++) {
+        replies[i] = redisCommand(c, "INCRBY incrkey %d", 1000000);
+        assert(replies[i] != NULL && replies[i]->type == REDIS_REPLY_INTEGER);
+    }
+    t2 = usec();
+    for (i = 0; i < num; i++) freeReplyObject(replies[i]);
+    free(replies);
+    printf("\t(%dx INCRBY: %.3fs)\n", num, (t2-t1)/1000000.0);
+
     num = 10000;
     replies = malloc(sizeof(redisReply*)*num);
     for (i = 0; i < num; i++)
@@ -626,6 +793,19 @@ static void test_throughput(struct config config) {
     for (i = 0; i < num; i++) freeReplyObject(replies[i]);
     free(replies);
     printf("\t(%dx LRANGE with 500 elements (pipelined): %.3fs)\n", num, (t2-t1)/1000000.0);
+
+    replies = malloc(sizeof(redisReply*)*num);
+    for (i = 0; i < num; i++)
+        redisAppendCommand(c,"INCRBY incrkey %d", 1000000);
+    t1 = usec();
+    for (i = 0; i < num; i++) {
+        assert(redisGetReply(c, (void*)&replies[i]) == REDIS_OK);
+        assert(replies[i] != NULL && replies[i]->type == REDIS_REPLY_INTEGER);
+    }
+    t2 = usec();
+    for (i = 0; i < num; i++) freeReplyObject(replies[i]);
+    free(replies);
+    printf("\t(%dx INCRBY (pipelined): %.3fs)\n", num, (t2-t1)/1000000.0);
 
     disconnect(c, 0);
 }
@@ -735,7 +915,7 @@ int main(int argc, char **argv) {
             .host = "127.0.0.1",
             .port = 6379
         },
-        .unix = {
+        .unix_sock = {
             .path = "/tmp/redis.sock"
         }
     };
@@ -756,11 +936,28 @@ int main(int argc, char **argv) {
             cfg.tcp.port = atoi(argv[0]);
         } else if (argc >= 2 && !strcmp(argv[0],"-s")) {
             argv++; argc--;
-            cfg.unix.path = argv[0];
+            cfg.unix_sock.path = argv[0];
         } else if (argc >= 1 && !strcmp(argv[0],"--skip-throughput")) {
             throughput = 0;
         } else if (argc >= 1 && !strcmp(argv[0],"--skip-inherit-fd")) {
             test_inherit_fd = 0;
+#ifdef HIREDIS_TEST_SSL
+        } else if (argc >= 2 && !strcmp(argv[0],"--ssl-port")) {
+            argv++; argc--;
+            cfg.ssl.port = atoi(argv[0]);
+        } else if (argc >= 2 && !strcmp(argv[0],"--ssl-host")) {
+            argv++; argc--;
+            cfg.ssl.host = argv[0];
+        } else if (argc >= 2 && !strcmp(argv[0],"--ssl-ca-cert")) {
+            argv++; argc--;
+            cfg.ssl.ca_cert  = argv[0];
+        } else if (argc >= 2 && !strcmp(argv[0],"--ssl-cert")) {
+            argv++; argc--;
+            cfg.ssl.cert = argv[0];
+        } else if (argc >= 2 && !strcmp(argv[0],"--ssl-key")) {
+            argv++; argc--;
+            cfg.ssl.key = argv[0];
+#endif
         } else {
             fprintf(stderr, "Invalid argument: %s\n", argv[0]);
             exit(1);
@@ -782,15 +979,29 @@ int main(int argc, char **argv) {
     test_append_formatted_commands(cfg);
     if (throughput) test_throughput(cfg);
 
-    printf("\nTesting against Unix socket connection (%s):\n", cfg.unix.path);
+    printf("\nTesting against Unix socket connection (%s):\n", cfg.unix_sock.path);
     cfg.type = CONN_UNIX;
     test_blocking_connection(cfg);
     test_blocking_connection_timeouts(cfg);
     test_blocking_io_errors(cfg);
     if (throughput) test_throughput(cfg);
 
+#ifdef HIREDIS_TEST_SSL
+    if (cfg.ssl.port && cfg.ssl.host) {
+        printf("\nTesting against SSL connection (%s:%d):\n", cfg.ssl.host, cfg.ssl.port);
+        cfg.type = CONN_SSL;
+
+        test_blocking_connection(cfg);
+        test_blocking_connection_timeouts(cfg);
+        test_blocking_io_errors(cfg);
+        test_invalid_timeout_errors(cfg);
+        test_append_formatted_commands(cfg);
+        if (throughput) test_throughput(cfg);
+    }
+#endif
+
     if (test_inherit_fd) {
-        printf("\nTesting against inherited fd (%s):\n", cfg.unix.path);
+        printf("\nTesting against inherited fd (%s):\n", cfg.unix_sock.path);
         cfg.type = CONN_FD;
         test_blocking_connection(cfg);
     }
