@@ -1,6 +1,6 @@
 CMAKE_MINIMUM_REQUIRED(VERSION 3.4.0)
 INCLUDE(GNUInstallDirs)
-PROJECT(hiredis-vip)
+PROJECT(hiredis_vip)
 
 OPTION(ENABLE_SSL "Build hiredis_ssl for SSL support" OFF)
 OPTION(DISABLE_TESTS "If tests should be compiled or not" OFF)
@@ -28,11 +28,11 @@ getVersionBit(HIREDIS_VIP_SONAME)
 SET(VERSION "${HIREDIS_VIP_MAJOR}.${HIREDIS_VIP_MINOR}.${HIREDIS_VIP_PATCH}")
 MESSAGE("Detected version: ${VERSION}")
 
-PROJECT(hiredis-vip VERSION "${VERSION}")
+PROJECT(hiredis_vip VERSION "${VERSION}")
 
 SET(ENABLE_EXAMPLES OFF CACHE BOOL "Enable building hiredis examples")
 
-ADD_LIBRARY(hiredis-vip
+ADD_LIBRARY(hiredis_vip
     async.c
     dict.c
     hiredis.c
@@ -47,26 +47,26 @@ ADD_LIBRARY(hiredis-vip
     hircluster.c
     hiutil.c)
 
-SET_TARGET_PROPERTIES(hiredis-vip
+SET_TARGET_PROPERTIES(hiredis_vip
     PROPERTIES
     VERSION "${HIREDIS_VIP_SONAME}")
 IF(WIN32 OR MINGW)
-    TARGET_LINK_LIBRARIES(hiredis-vip PRIVATE ws2_32)
+    TARGET_LINK_LIBRARIES(hiredis_vip PRIVATE ws2_32)
 ENDIF()
-TARGET_INCLUDE_DIRECTORIES(hiredis-vip PUBLIC .)
+TARGET_INCLUDE_DIRECTORIES(hiredis_vip PUBLIC .)
 
-CONFIGURE_FILE(hiredis-vip.pc.in hiredis-vip.pc @ONLY)
+CONFIGURE_FILE(hiredis_vip.pc.in hiredis_vip.pc @ONLY)
 
-INSTALL(TARGETS hiredis-vip
+INSTALL(TARGETS hiredis_vip
     DESTINATION "${CMAKE_INSTALL_LIBDIR}")
 
 INSTALL(FILES hiredis.h read.h sds.h async.h hircluster.h dict.h adlist.h hiarray.h
-    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/hiredis-vip)
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/hiredis_vip)
     
 INSTALL(DIRECTORY adapters
-    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/hiredis-vip)
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/hiredis_vip)
     
-INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/hiredis-vip.pc
+INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/hiredis_vip.pc
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
 
 IF(ENABLE_SSL)
@@ -86,7 +86,7 @@ IF(ENABLE_SSL)
         DESTINATION "${CMAKE_INSTALL_LIBDIR}")
 
     INSTALL(FILES hiredis_ssl.h
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/hiredis-vip)
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/hiredis_vip)
     
     INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/hiredis_ssl.pc
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
@@ -95,7 +95,7 @@ ENDIF()
 IF(NOT (DISABLE_TESTS OR (WIN32 OR MINGW)))
     ENABLE_TESTING()
     ADD_EXECUTABLE(hiredis-test test.c)
-    TARGET_LINK_LIBRARIES(hiredis-test hiredis-vip)
+    TARGET_LINK_LIBRARIES(hiredis-test hiredis_vip)
     ADD_TEST(NAME hiredis-test
         COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/test.sh)
 ENDIF()

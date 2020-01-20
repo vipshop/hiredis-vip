@@ -10,7 +10,7 @@ ifeq ($(USE_SSL),1)
 EXAMPLES+=hiredis-example-ssl hiredis-example-libevent-ssl
 endif
 TESTS=hiredis-test
-LIBNAME=libhiredis-vip
+LIBNAME=libhiredis_vip
 SSL_LIBNAME=libhiredis_ssl
 PKGCONFNAME=hiredis-vip.pc
 SSL_PKGCONFNAME=hiredis_ssl.pc
