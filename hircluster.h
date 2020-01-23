@@ -5,10 +5,10 @@
 #include "hiredis.h"
 #include "async.h"
 
-#define HIREDIS_VIP_MAJOR 1
-#define HIREDIS_VIP_MINOR 0
+#define HIREDIS_VIP_MAJOR 0
+#define HIREDIS_VIP_MINOR 4
 #define HIREDIS_VIP_PATCH 0
-#define HIREDIS_VIP_SONAME 1.0
+#define HIREDIS_VIP_SONAME 0.4
 
 #define REDIS_CLUSTER_SLOTS 16384
 
