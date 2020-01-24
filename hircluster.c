@@ -36,6 +36,8 @@
 
 #define IP_PORT_SEPARATOR ":"
 
+#define PORT_CPORT_SEPARATOR "@"
+
 #define CLUSTER_ADDRESS_SEPARATOR ","
 
 #define CLUSTER_DEFAULT_MAX_REDIRECT_COUNT 5
@@ -546,8 +548,8 @@ static cluster_node *node_get_with_nodes(
     redisClusterContext *cc,
     sds *node_infos, int info_count, uint8_t role)
 {
-    sds *ip_port = NULL;
-    int count_ip_port = 0;
+    sds *ip_port = NULL, *port_cport = NULL;
+    int count_ip_port = 0, count_port_cport = 0;
     cluster_node *node;
 
     if(info_count < 8)
@@ -591,9 +593,19 @@ static cluster_node *node_get_with_nodes(
         goto error;
     }
     node->host = ip_port[0];
-    node->port = hi_atoi(ip_port[1], sdslen(ip_port[1]));
+
+    port_cport = sdssplitlen(ip_port[1], sdslen(ip_port[1]),
+        PORT_CPORT_SEPARATOR, strlen(PORT_CPORT_SEPARATOR), &count_port_cport);
+    if (port_cport == NULL || count_port_cport != 2)
+    {
+        __redisClusterSetError(cc, REDIS_ERR_OTHER,
+            "split port cport  error");
+        goto error;
+    }
+    node->port = hi_atoi(port_cport[0], sdslen(port_cport[0]));
     node->role = role;
 
+    sdsfreesplitres(port_cport, count_port_cport);
     sdsfree(ip_port[1]);
     free(ip_port);
 
@@ -606,6 +618,11 @@ error:
     if(ip_port != NULL)
     {
         sdsfreesplitres(ip_port, count_ip_port);
+    }
+
+    if (port_cport != NULL)
+    {
+        sdsfreesplitres(port_cport, count_port_cport);
     }
 
     if(node != NULL)
