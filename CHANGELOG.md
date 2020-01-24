@@ -1,3 +1,9 @@
+### 0.4.0 - Jan 24, 2019
+* Updated underlying hiredis version to 0.14.0
+* Added CMake files to enable Windows and Mac builds
+* Fixed bug due to CLUSTER NODES reply format change
+
+
 ### 0.3.0 - Dec 07, 2016
 
 * Support redisClustervCommand, redisClustervAppendCommand and redisClustervAsyncCommand api. (deep011)
