@@ -20,6 +20,10 @@
 #define strncasecmp _strnicmp
 #endif
 
+#ifndef strtok_r
+#define strtok_r strtok_s
+#endif
+
 #ifndef va_copy
 #define va_copy(d,s) ((d) = (s))
 #endif
