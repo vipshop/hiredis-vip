@@ -26,13 +26,21 @@ MESSAGE("Detected version: ${VERSION}")
 
 PROJECT(hiredis_vip VERSION "${VERSION}")
 
-ADD_LIBRARY(hiredis_vip SHARED
+SET(hiredis_vip_SOURCES
     adlist.c
     command.c
     crc16.c
     hiarray.c
     hircluster.c
     hiutil.c)
+IF(WIN32 OR MINGW)
+    SET(hiredis_vip_SOURCES
+        ${hiredis_vip_SOURCES}
+        hiredis_vip.def)
+ENDIF()
+
+ADD_LIBRARY(hiredis_vip SHARED
+    ${hiredis_vip_SOURCES})
 
 SET_TARGET_PROPERTIES(hiredis_vip
     PROPERTIES
