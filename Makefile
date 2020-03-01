@@ -3,17 +3,9 @@
 # Copyright (C) 2010-2011 Pieter Noordhuis <pcnoordhuis at gmail dot com>
 # This file is released under the BSD license, see the COPYING file
 
-OBJ=net.o hiredis.o sds.o async.o read.o sockcompat.o adlist.o command.o crc16.o dict.o hiarray.o hircluster.o hiutil.o
-SSL_OBJ=ssl.o
-EXAMPLES=hiredis-example hiredis-example-libevent hiredis-example-libev hiredis-example-glib
-ifeq ($(USE_SSL),1)
-EXAMPLES+=hiredis-example-ssl hiredis-example-libevent-ssl
-endif
-TESTS=hiredis-test
+OBJ=adlist.o command.o crc16.o hiarray.o hircluster.o hiutil.o
 LIBNAME=libhiredis_vip
-SSL_LIBNAME=libhiredis_ssl
 PKGCONFNAME=hiredis-vip.pc
-SSL_PKGCONFNAME=hiredis_ssl.pc
 
 HIREDIS_VIP_MAJOR=$(shell grep HIREDIS_VIP_MAJOR hircluster.h | awk '{print $$3}')
 HIREDIS_VIP_MINOR=$(shell grep HIREDIS_VIP_MINOR hircluster.h | awk '{print $$3}')
@@ -28,18 +20,6 @@ PKGCONF_PATH?=pkgconfig
 INSTALL_INCLUDE_PATH= $(DESTDIR)$(PREFIX)/$(INCLUDE_PATH)
 INSTALL_LIBRARY_PATH= $(DESTDIR)$(PREFIX)/$(LIBRARY_PATH)
 INSTALL_PKGCONF_PATH= $(INSTALL_LIBRARY_PATH)/$(PKGCONF_PATH)
-
-# redis-server configuration used for testing
-REDIS_PORT=56379
-REDIS_SERVER=redis-server
-define REDIS_TEST_CONFIG
-	daemonize yes
-	pidfile /tmp/hiredis-test-redis.pid
-	port $(REDIS_PORT)
-	bind 127.0.0.1
-	unixsocket /tmp/hiredis-test-redis.sock
-endef
-export REDIS_TEST_CONFIG
 
 # Fallback to gcc when $CC is not in $PATH.
 CC:=$(shell sh -c 'type $${CC%% *} >/dev/null 2>/dev/null && echo $(CC) || echo gcc')
@@ -64,52 +44,15 @@ STLIB_MAKE_CMD=$(AR) rcs
 # Platform-specific overrides
 uname_S := $(shell sh -c 'uname -s 2>/dev/null || echo not')
 
-USE_SSL?=0
-
-# This is required for test.c only
-ifeq ($(USE_SSL),1)
-  CFLAGS+=-DHIREDIS_TEST_SSL
-endif
-
-ifeq ($(uname_S),Linux)
-  SSL_LDFLAGS=-lssl -lcrypto
-else
-  OPENSSL_PREFIX?=/usr/local/opt/openssl
-  CFLAGS+=-I$(OPENSSL_PREFIX)/include
-  SSL_LDFLAGS+=-L$(OPENSSL_PREFIX)/lib -lssl -lcrypto
-endif
-
-ifeq ($(uname_S),SunOS)
-  REAL_LDFLAGS+= -ldl -lnsl -lsocket
-  DYLIB_MAKE_CMD=$(CC) -G -o $(DYLIBNAME) -h $(DYLIB_MINOR_NAME) $(LDFLAGS)
-endif
-ifeq ($(uname_S),Darwin)
-  DYLIBSUFFIX=dylib
-  DYLIB_MINOR_NAME=$(LIBNAME).$(HIREDIS_VIP_SONAME).$(DYLIBSUFFIX)
-  DYLIB_MAKE_CMD=$(CC) -dynamiclib -Wl,-install_name,$(PREFIX)/$(LIBRARY_PATH)/$(DYLIB_MINOR_NAME) -o $(DYLIBNAME) $(LDFLAGS)
-endif
-
-all: $(DYLIBNAME) $(STLIBNAME) hiredis-test $(PKGCONFNAME)
-ifeq ($(USE_SSL),1)
-all: $(SSL_DYLIBNAME) $(SSL_STLIBNAME) $(SSL_PKGCONFNAME)
-endif
+all: $(DYLIBNAME) $(STLIBNAME) $(PKGCONFNAME)
 
 # Deps (use make dep to generate this)
 adlist.o: adlist.c adlist.h hiutil.h
-async.o: async.c fmacros.h async.h hiredis.h read.h sds.h net.h dict.c dict.h win32.h async_private.h
 command.o: command.c command.h hiredis.h read.h sds.h adlist.h hiutil.h hiarray.h
 crc16.o: crc16.c hiutil.h
-dict.o: dict.c fmacros.h dict.h
 hiarray.o: hiarray.c hiutil.h hiarray.h
 hircluster.o: hircluster.c fmacros.h win32.h hircluster.h hiredis.h read.h sds.h async.h hiutil.h adlist.h hiarray.h command.h dict.c dict.h
-hiredis.o: hiredis.c fmacros.h hiredis.h read.h sds.h net.h async.h win32.h
 hiutil.o: hiutil.c win32.h hiutil.h
-net.o: net.c fmacros.h net.h hiredis.h read.h sds.h sockcompat.h win32.h
-read.o: read.c fmacros.h read.h sds.h win32.h
-sds.o: sds.c sds.h sdsalloc.h
-sockcompat.o: sockcompat.c sockcompat.h
-ssl.o: ssl.c hiredis.h read.h sds.h async.h async_private.h
-test.o: test.c fmacros.h hiredis.h read.h sds.h net.h
 
 $(DYLIBNAME): $(OBJ)
 	$(DYLIB_MAKE_CMD) -o $(DYLIBNAME) $(OBJ) $(REAL_LDFLAGS)
@@ -117,97 +60,14 @@ $(DYLIBNAME): $(OBJ)
 $(STLIBNAME): $(OBJ)
 	$(STLIB_MAKE_CMD) $(STLIBNAME) $(OBJ)
 
-$(SSL_DYLIBNAME): $(SSL_OBJ)
-	$(DYLIB_MAKE_CMD) -o $(SSL_DYLIBNAME) $(SSL_OBJ) $(REAL_LDFLAGS) $(SSL_LDFLAGS)
-
-$(SSL_STLIBNAME): $(SSL_OBJ)
-	$(STLIB_MAKE_CMD) $(SSL_STLIBNAME) $(SSL_OBJ)
-
 dynamic: $(DYLIBNAME)
 static: $(STLIBNAME)
-ifeq ($(USE_SSL),1)
-dynamic: $(SSL_DYLIBNAME)
-static: $(SSL_STLIBNAME)
-endif
-
-# Binaries:
-hiredis-example-libevent: examples/example-libevent.c adapters/libevent.h $(STLIBNAME)
-	$(CC) -o examples/$@ $(REAL_CFLAGS) -I. $< -levent $(STLIBNAME) $(REAL_LDFLAGS)
-
-hiredis-example-libevent-ssl: examples/example-libevent-ssl.c adapters/libevent.h $(STLIBNAME) $(SSL_STLIBNAME)
-	$(CC) -o examples/$@ $(REAL_CFLAGS) -I. $< -levent $(STLIBNAME) $(SSL_STLIBNAME) $(REAL_LDFLAGS) $(SSL_LDFLAGS)
-
-hiredis-example-libev: examples/example-libev.c adapters/libev.h $(STLIBNAME)
-	$(CC) -o examples/$@ $(REAL_CFLAGS) -I. $< -lev $(STLIBNAME) $(REAL_LDFLAGS)
-
-hiredis-example-glib: examples/example-glib.c adapters/glib.h $(STLIBNAME)
-	$(CC) -o examples/$@ $(REAL_CFLAGS) -I. $< $(shell pkg-config --cflags --libs glib-2.0) $(STLIBNAME) $(REAL_LDFLAGS)
-
-hiredis-example-ivykis: examples/example-ivykis.c adapters/ivykis.h $(STLIBNAME)
-	$(CC) -o examples/$@ $(REAL_CFLAGS) -I. $< -livykis $(STLIBNAME) $(REAL_LDFLAGS)
-
-hiredis-example-macosx: examples/example-macosx.c adapters/macosx.h $(STLIBNAME)
-	$(CC) -o examples/$@ $(REAL_CFLAGS) -I. $< -framework CoreFoundation $(STLIBNAME) $(REAL_LDFLAGS)
-
-hiredis-example-ssl: examples/example-ssl.c $(STLIBNAME) $(SSL_STLIBNAME)
-	$(CC) -o examples/$@ $(REAL_CFLAGS) -I. $< $(STLIBNAME) $(SSL_STLIBNAME) $(REAL_LDFLAGS) $(SSL_LDFLAGS)
-
-ifndef AE_DIR
-hiredis-example-ae:
-	@echo "Please specify AE_DIR (e.g. <redis repository>/src)"
-	@false
-else
-hiredis-example-ae: examples/example-ae.c adapters/ae.h $(STLIBNAME)
-	$(CC) -o examples/$@ $(REAL_CFLAGS) $(REAL_LDFLAGS) -I. -I$(AE_DIR) $< $(AE_DIR)/ae.o $(AE_DIR)/zmalloc.o $(AE_DIR)/../deps/jemalloc/lib/libjemalloc.a -pthread $(STLIBNAME)
-endif
-
-ifndef LIBUV_DIR
-hiredis-example-libuv:
-	@echo "Please specify LIBUV_DIR (e.g. ../libuv/)"
-	@false
-else
-hiredis-example-libuv: examples/example-libuv.c adapters/libuv.h $(STLIBNAME)
-	$(CC) -o examples/$@ $(REAL_CFLAGS) -I. -I$(LIBUV_DIR)/include $< $(LIBUV_DIR)/.libs/libuv.a -lpthread -lrt $(STLIBNAME) $(REAL_LDFLAGS)
-endif
-
-ifeq ($(and $(QT_MOC),$(QT_INCLUDE_DIR),$(QT_LIBRARY_DIR)),)
-hiredis-example-qt:
-	@echo "Please specify QT_MOC, QT_INCLUDE_DIR AND QT_LIBRARY_DIR"
-	@false
-else
-hiredis-example-qt: examples/example-qt.cpp adapters/qt.h $(STLIBNAME)
-	$(QT_MOC) adapters/qt.h -I. -I$(QT_INCLUDE_DIR) -I$(QT_INCLUDE_DIR)/QtCore | \
-	    $(CXX) -x c++ -o qt-adapter-moc.o -c - $(REAL_CFLAGS) -I. -I$(QT_INCLUDE_DIR) -I$(QT_INCLUDE_DIR)/QtCore
-	$(QT_MOC) examples/example-qt.h -I. -I$(QT_INCLUDE_DIR) -I$(QT_INCLUDE_DIR)/QtCore | \
-	    $(CXX) -x c++ -o qt-example-moc.o -c - $(REAL_CFLAGS) -I. -I$(QT_INCLUDE_DIR) -I$(QT_INCLUDE_DIR)/QtCore
-	$(CXX) -o examples/$@ $(REAL_CFLAGS) $(REAL_LDFLAGS) -I. -I$(QT_INCLUDE_DIR) -I$(QT_INCLUDE_DIR)/QtCore -L$(QT_LIBRARY_DIR) qt-adapter-moc.o qt-example-moc.o $< -pthread $(STLIBNAME) -lQtCore
-endif
-
-hiredis-example: examples/example.c $(STLIBNAME)
-	$(CC) -o examples/$@ $(REAL_CFLAGS) -I. $< $(STLIBNAME) $(REAL_LDFLAGS)
-
-examples: $(EXAMPLES)
-
-TEST_LIBS = $(STLIBNAME)
-ifeq ($(USE_SSL),1)
-    TEST_LIBS += $(SSL_STLIBNAME) -lssl -lcrypto -lpthread
-endif
-hiredis-test: test.o $(TEST_LIBS)
-
-hiredis-%: %.o $(STLIBNAME)
-	$(CC) $(REAL_CFLAGS) -o $@ $< $(TEST_LIBS) $(REAL_LDFLAGS)
-
-test: hiredis-test
-	./hiredis-test
-
-check: hiredis-test
-	TEST_SSL=$(USE_SSL) ./test.sh
 
 .c.o:
 	$(CC) -std=c99 -pedantic -c $(REAL_CFLAGS) $<
 
 clean:
-	rm -rf $(DYLIBNAME) $(STLIBNAME) $(SSL_DYLIBNAME) $(SSL_STLIBNAME) $(TESTS) $(PKGCONFNAME) examples/hiredis-example* *.o *.gcda *.gcno *.gcov
+	rm -rf $(DYLIBNAME) $(STLIBNAME) $(PKGCONFNAME) *.o *.gcda *.gcno *.gcov
 
 dep:
 	$(CC) $(CPPFLAGS) $(CFLAGS) -MM *.c
@@ -226,20 +86,6 @@ $(PKGCONFNAME): hircluster.h
 	@echo Version: $(HIREDIS_VIP_MAJOR).$(HIREDIS_VIP_MINOR).$(HIREDIS_VIP_PATCH) >> $@
 	@echo Libs: -L\$${libdir} -lhiredis-vip >> $@
 	@echo Cflags: -I\$${includedir} -D_FILE_OFFSET_BITS=64 >> $@
-
-$(SSL_PKGCONFNAME): hiredis.h
-	@echo "Generating $@ for pkgconfig..."
-	@echo prefix=$(PREFIX) > $@
-	@echo exec_prefix=\$${prefix} >> $@
-	@echo libdir=$(PREFIX)/$(LIBRARY_PATH) >> $@
-	@echo includedir=$(PREFIX)/$(INCLUDE_PATH) >> $@
-	@echo >> $@
-	@echo Name: hiredis_ssl >> $@
-	@echo Description: SSL Support for hiredis. >> $@
-	@echo Version: $(HIREDIS_VIP_MAJOR).$(HIREDIS_VIP_MINOR).$(HIREDIS_VIP_PATCH) >> $@
-	@echo Requires: hiredis-vip >> $@
-	@echo Libs: -L\$${libdir} -lhiredis_ssl >> $@
-	@echo Libs.private: -lssl -lcrypto >> $@
 
 install: $(DYLIBNAME) $(STLIBNAME) $(PKGCONFNAME)
 	mkdir -p $(INSTALL_INCLUDE_PATH) $(INSTALL_INCLUDE_PATH)/adapters $(INSTALL_LIBRARY_PATH)
