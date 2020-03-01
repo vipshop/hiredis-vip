@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-#include "hiredis.h"
+#include <hiredis/hiredis.h>
 #include "adlist.h"
 
 typedef enum cmd_parse_result {

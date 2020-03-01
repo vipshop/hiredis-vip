@@ -1,5 +1,4 @@
 
-#include "fmacros.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -143,12 +142,6 @@ void listCommandFree(void *command)
     struct cmd *cmd = command;
     command_destroy(cmd);
 }
-
-/* Defined in hiredis.c */
-void __redisSetError(redisContext *c, int type, const char *str);
-
-/* Forward declaration of function in hiredis.c */
-int __redisAppendCommand(redisContext *c, const char *cmd, size_t len);
 
 /* Helper function for the redisClusterCommand* family of functions.
  *
@@ -2863,7 +2856,7 @@ static int __redisClusterAppendCommand(redisClusterContext *cc,
         return REDIS_ERR;
     }
 
-    if (__redisAppendCommand(c, command->cmd, command->clen) != REDIS_OK) 
+    if (redisAppendFormattedCommand(c, command->cmd, command->clen) != REDIS_OK) 
     {
         __redisClusterSetError(cc, c->err, c->errstr);
         return REDIS_ERR;
@@ -3075,7 +3068,7 @@ retry:
 
 ask_retry:
 
-    if (__redisAppendCommand(c,command->cmd, command->clen) != REDIS_OK) 
+    if (redisAppendFormattedCommand(c,command->cmd, command->clen) != REDIS_OK) 
     {
         __redisClusterSetError(cc, c->err, c->errstr);
         return NULL;
@@ -4388,7 +4381,7 @@ redisAsyncContext * actx_get_by_node(redisClusterAsyncContext *acc,
     }
 
     ac->data = node;
-    ac->cleanup = unlinkAsyncContextAndNode;
+    ac->dataCleanup = unlinkAsyncContextAndNode;
     node->acon = ac;
     
     return ac;

@@ -2,8 +2,8 @@
 #ifndef __HIRCLUSTER_H
 #define __HIRCLUSTER_H
 
-#include "hiredis.h"
-#include "async.h"
+#include <hiredis/hiredis.h>
+#include <hiredis/async.h>
 
 #define HIREDIS_VIP_MAJOR 0
 #define HIREDIS_VIP_MINOR 4

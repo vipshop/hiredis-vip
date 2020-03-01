@@ -1,0 +1,13 @@
+@PACKAGE_INIT@
+
+set_and_check(hiredis_vip_INCLUDEDIR "@PACKAGE_INCLUDE_INSTALL_DIR@")
+
+IF (NOT TARGET hiredis_vip::hiredis_vip)
+	INCLUDE(${CMAKE_CURRENT_LIST_DIR}/hiredis_vip-targets.cmake)
+ENDIF()
+
+SET(hiredis_vip_LIBRARIES hiredis_vip::hiredis_vip)
+SET(hiredis_vip_INCLUDE_DIRS ${hiredis_vip_INCLUDEDIR})
+
+check_required_components(hiredis_vip)
+
