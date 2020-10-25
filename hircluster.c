@@ -4961,6 +4961,8 @@ void redisClusterAsyncDisconnect(redisClusterAsyncContext *acc) {
 
         node->acon = NULL;
     }
+
+    dictReleaseIterator(di);
 }
 
 void redisClusterAsyncFree(redisClusterAsyncContext *acc)
