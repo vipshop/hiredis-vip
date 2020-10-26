@@ -4322,12 +4322,12 @@ static void cluster_async_data_free(cluster_async_data *cad)
     cad = NULL;
 }
 
-static void unlinkAsyncContextAndNode(redisAsyncContext* ac)
+static void unlinkAsyncContextAndNode(void *data)
 {
     cluster_node *node;
 
-    if (ac->data) {
-        node = (cluster_node *)(ac->data);
+    if (data) {
+        node = (cluster_node *)(data);
         node->acon = NULL;
     }
 }
