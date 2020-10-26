@@ -30,7 +30,7 @@
 
 #ifndef __HIREDIS_VIP_LIBEVENT_H__
 #define __HIREDIS_VIP_LIBEVENT_H__
-#include <hiredis/adapaters/libevent.h>
+#include <hiredis/adapters/libevent.h>
 #include "../hircluster.h"
 
 static int redisLibeventAttach_link(redisAsyncContext *ac, void *base) {
