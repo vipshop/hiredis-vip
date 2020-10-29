@@ -312,6 +312,16 @@ cmake ..
 make
 ```
 
+Options:
+
+```
+# Dont download hiredis from git
+cmake -DDOWNLOAD_HIREDIS=OFF ..
+
+# Build without tests:
+cmake -DDISABLE_TESTS=ON ..
+```
+
 Build the examples
 
 ```

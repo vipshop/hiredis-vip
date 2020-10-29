@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.14)
 
 option(DOWNLOAD_HIREDIS "Download the dependency hiredis from GitHub" ON)
+option(DISABLE_TESTS    "Disable compilation of test" OFF)
 
 MACRO(getVersionBit name)
   SET(VERSION_REGEX "^#define ${name} (.+)$")
@@ -56,7 +57,12 @@ if(DOWNLOAD_HIREDIS)
     GIT_TAG        v1.0.0
     SOURCE_DIR     "${CMAKE_CURRENT_BINARY_DIR}/_deps/hiredis"
   )
+
+  # Disable tests in hiredis
+  set(DISABLE_TESTS_OLD ${DISABLE_TESTS})
+  set(DISABLE_TESTS ON CACHE INTERNAL "")
   FetchContent_MakeAvailable(hiredis)
+  set(DISABLE_TESTS ${DISABLE_TESTS_OLD} CACHE INTERNAL "")
 
   # Create an empty *Config.cmake for find_package
   # See: https://github.com/abandonware-pjz37/cmake-find-package-include/blob/master/hooks/fetch.cmake
@@ -73,12 +79,21 @@ endif()
 
 find_package(hiredis REQUIRED)
 
-TARGET_INCLUDE_DIRECTORIES(hiredis_vip PRIVATE ${hiredis_INCLUDE_DIRS})
+target_include_directories(hiredis_vip PUBLIC
+  $<BUILD_INTERFACE:${hiredis_INCLUDE_DIRS}>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
 
 IF(WIN32 OR MINGW)
     TARGET_LINK_LIBRARIES(hiredis_vip PRIVATE ws2_32 hiredis::hiredis)
 ENDIF()
 
+if (NOT DISABLE_TESTS)
+  include(CTest)
+
+  if(BUILD_TESTING)
+    add_subdirectory(tests)
+  endif()
+endif()
 
 # Get CMAKE_INSTALL_ variables
 include(GNUInstallDirs)
