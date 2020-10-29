@@ -1,14 +1,6 @@
-CMAKE_MINIMUM_REQUIRED(VERSION 3.4.0)
-INCLUDE(GNUInstallDirs)
-PROJECT(hiredis_vip)
+cmake_minimum_required(VERSION 3.14)
 
-IF (WIN32 OR MINGW)
-    ADD_COMPILE_DEFINITIONS(_CRT_SECURE_NO_WARNINGS WIN32_LEAN_AND_MEAN)
-ENDIF()
-
-IF (MSVC)
-    ADD_COMPILE_OPTIONS("/wd 4267" "/wd 4244")
-ENDIF()
+include(GNUInstallDirs)
 
 MACRO(getVersionBit name)
   SET(VERSION_REGEX "^#define ${name} (.+)$")
@@ -17,6 +9,7 @@ MACRO(getVersionBit name)
   STRING(REGEX REPLACE ${VERSION_REGEX} "\\1" ${name} "${VERSION_BIT}")
 ENDMACRO(getVersionBit)
 
+# Get version information from src-code
 getVersionBit(HIREDIS_VIP_MAJOR)
 getVersionBit(HIREDIS_VIP_MINOR)
 getVersionBit(HIREDIS_VIP_PATCH)
@@ -24,7 +17,9 @@ getVersionBit(HIREDIS_VIP_SONAME)
 SET(VERSION "${HIREDIS_VIP_MAJOR}.${HIREDIS_VIP_MINOR}.${HIREDIS_VIP_PATCH}")
 MESSAGE("Detected version: ${VERSION}")
 
-PROJECT(hiredis_vip VERSION "${VERSION}")
+project(hiredis_vip
+  VERSION "${VERSION}"
+  LANGUAGES C)
 
 SET(hiredis_vip_SOURCES
     adlist.c
@@ -33,10 +28,16 @@ SET(hiredis_vip_SOURCES
     hiarray.c
     hircluster.c
     hiutil.c)
+
 IF(WIN32 OR MINGW)
+    ADD_COMPILE_DEFINITIONS(_CRT_SECURE_NO_WARNINGS WIN32_LEAN_AND_MEAN)
     SET(hiredis_vip_SOURCES
         ${hiredis_vip_SOURCES}
         hiredis_vip.def)
+ENDIF()
+
+IF (MSVC)
+    ADD_COMPILE_OPTIONS("/wd 4267" "/wd 4244")
 ENDIF()
 
 ADD_LIBRARY(hiredis_vip SHARED
@@ -48,7 +49,7 @@ SET_TARGET_PROPERTIES(hiredis_vip
 
 FIND_PACKAGE(hiredis REQUIRED)
 
-TARGET_INCLUDE_DIRECTORIES(hiredis_vip PUBLIC ${hiredis_INCLUDE_DIRS})
+TARGET_INCLUDE_DIRECTORIES(hiredis_vip PRIVATE ${hiredis_INCLUDE_DIRS})
 
 IF(WIN32 OR MINGW)
     TARGET_LINK_LIBRARIES(hiredis_vip PRIVATE ws2_32 hiredis::hiredis)
@@ -61,10 +62,10 @@ INSTALL(TARGETS hiredis_vip
 
 INSTALL(FILES hircluster.h adlist.h hiarray.h
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/hiredis_vip)
-    
+
 INSTALL(DIRECTORY adapters
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/hiredis_vip)
-    
+
 INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/hiredis_vip.pc
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
 
@@ -84,7 +85,5 @@ INSTALL(EXPORT hiredis_vip-targets
         NAMESPACE hiredis_vip::
         DESTINATION ${CMAKE_CONF_INSTALL_DIR})
 
-INSTALL(FILES hiredis_vip-config.cmake
+INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/hiredis_vip-config.cmake
         DESTINATION ${CMAKE_CONF_INSTALL_DIR})
-
-

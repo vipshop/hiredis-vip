@@ -301,11 +301,29 @@ callbacks have been executed. After this, the disconnection callback is executed
 There are a few hooks that need to be set on the cluster context object after it is created.
 See the `adapters/` directory for bindings to *ae* and *libevent*.
 
+## Build instructions
+
+Build the examples
+
+```
+mkdir build_examples
+cd build_examples
+cmake ../examples_cmakebuild
+make
+
+# Run
+./examples/src/examples-build/examples
+./examples/src/examples-build/examples_async
+./examples/src/examples-build/examples_ipv6
+./examples/src/examples-build/examples_tls
+```
+
 ## AUTHORS
 
-Hiredis-vip was maintained and used at vipshop(https://github.com/vipshop).
+Hiredis-vip was created by vipshop (https://github.com/vipshop/hiredis-vip).
 
-The redis client library part in hiredis-vip is same as hiredis(https://github.com/redis/hiredis).
+This fork is based on the heronr fork (https://github.com/heronr/hiredis-vip)
+and uses hiredis (https://github.com/redis/hiredis).
 
 The redis cluster client library part in hiredis-vip is written by deep(https://github.com/deep011).
 
