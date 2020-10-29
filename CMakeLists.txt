@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.14)
 
-include(GNUInstallDirs)
+option(DOWNLOAD_HIREDIS "Download the dependency hiredis from GitHub" ON)
 
 MACRO(getVersionBit name)
   SET(VERSION_REGEX "^#define ${name} (.+)$")
@@ -47,13 +47,41 @@ SET_TARGET_PROPERTIES(hiredis_vip
     PROPERTIES
     VERSION "${HIREDIS_VIP_SONAME}")
 
-FIND_PACKAGE(hiredis REQUIRED)
+if(DOWNLOAD_HIREDIS)
+  message("Downloading dependency 'hiredis'..")
+
+  include(FetchContent)
+  FetchContent_Declare(hiredis
+    GIT_REPOSITORY https://github.com/redis/hiredis
+    GIT_TAG        v1.0.0
+    SOURCE_DIR     "${CMAKE_CURRENT_BINARY_DIR}/_deps/hiredis"
+  )
+  FetchContent_MakeAvailable(hiredis)
+
+  # Create an empty *Config.cmake for find_package
+  # See: https://github.com/abandonware-pjz37/cmake-find-package-include/blob/master/hooks/fetch.cmake
+  set(stub_dir "${CMAKE_CURRENT_BINARY_DIR}/generated/pkg")
+  file(WRITE "${stub_dir}/hiredisConfig.cmake" "")
+  set(hiredis_DIR ${stub_dir})
+
+  # Set variables normally got from hiredisConfig.cmake
+  SET(hiredis_LIBRARIES hiredis::hiredis)
+  SET(hiredis_INCLUDE_DIRS "${CMAKE_CURRENT_BINARY_DIR}/_deps")
+else()
+  message("Expecting to find dependency 'hiredis' in path..")
+endif()
+
+find_package(hiredis REQUIRED)
 
 TARGET_INCLUDE_DIRECTORIES(hiredis_vip PRIVATE ${hiredis_INCLUDE_DIRS})
 
 IF(WIN32 OR MINGW)
     TARGET_LINK_LIBRARIES(hiredis_vip PRIVATE ws2_32 hiredis::hiredis)
 ENDIF()
+
+
+# Get CMAKE_INSTALL_ variables
+include(GNUInstallDirs)
 
 CONFIGURE_FILE(hiredis_vip.pc.in hiredis_vip.pc @ONLY)
 

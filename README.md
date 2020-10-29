@@ -303,6 +303,15 @@ See the `adapters/` directory for bindings to *ae* and *libevent*.
 
 ## Build instructions
 
+Build the library
+
+```
+mkdir build
+cd build
+cmake ..
+make
+```
+
 Build the examples
 
 ```
