@@ -5,6 +5,8 @@
 #include <hiredis/hiredis.h>
 #include <hiredis/async.h>
 
+#define UNUSED(x) (void)(x)
+
 #define HIREDIS_VIP_MAJOR 0
 #define HIREDIS_VIP_MINOR 4
 #define HIREDIS_VIP_PATCH 0

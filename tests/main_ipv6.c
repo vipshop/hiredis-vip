@@ -4,6 +4,9 @@
 
 int main(int argc, char **argv)
 {
+    UNUSED(argc);
+    UNUSED(argv);
+
     struct timeval timeout = { 1, 500000 }; // 1.5s
 
     redisClusterContext *cc = redisClusterContextInit();

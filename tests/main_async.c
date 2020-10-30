@@ -46,6 +46,9 @@ void disconnectCallback(const redisAsyncContext *ac, int status) {
 
 int main(int argc, char **argv)
 {
+    UNUSED(argc);
+    UNUSED(argv);
+
     printf("Connecting...\n");
     redisClusterAsyncContext *cc = redisClusterAsyncConnect("127.0.0.1:30001",
                                                             HIRCLUSTER_FLAG_NULL);

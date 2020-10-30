@@ -1,8 +1,10 @@
 ### 0.4.0 - Jan 24, 2019
+
 * Updated underlying hiredis version to 0.14.0
 * Added CMake files to enable Windows and Mac builds
 * Fixed bug due to CLUSTER NODES reply format change
 
+https://github.com/heronr/hiredis-vip
 
 ### 0.3.0 - Dec 07, 2016
 
@@ -10,6 +12,8 @@
 * Add flags HIRCLUSTER_FLAG_ADD_OPENSLOT and HIRCLUSTER_FLAG_ROUTE_USE_SLOTS. (deep011)
 * Support redisClusterCommandArgv related api. (deep011)
 * Fix some serious bugs. (deep011)
+
+https://github.com/vipshop/hiredis-vip
 
 ### 0.2.1 - Nov 24, 2015
 
