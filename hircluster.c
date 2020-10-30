@@ -1504,399 +1504,6 @@ error:
     return REDIS_ERR;
 }
 
-
-/**
-  * Update route with the "cluster nodes" command reply.
-  */
-static int 
-cluster_update_route_with_nodes_old(redisClusterContext *cc, 
-    const char *ip, int port)
-{
-    int ret;
-    redisContext *c = NULL;
-    redisReply *reply = NULL;
-    struct hiarray *slots = NULL;
-    dict *nodes = NULL;
-    dict *nodes_name = NULL;
-    cluster_node *master, *slave;
-    cluster_slot **slot;
-    char *pos, *start, *end, *line_start, *line_end;
-    char *role;
-    int role_len;
-    uint8_t myself = 0;
-    int slot_start, slot_end;
-    sds *part = NULL, *slot_start_end = NULL;
-    int count_part = 0, count_slot_start_end = 0;
-    int j, k;
-    int len;
-    cluster_node *table[REDIS_CLUSTER_SLOTS] = {NULL};
-
-    if(cc == NULL)
-    {
-        return REDIS_ERR;
-    }
-
-    if(ip == NULL || port <= 0)
-    {
-        __redisClusterSetError(cc,
-            REDIS_ERR_OTHER,"ip or port error!");
-        goto error;
-    }
-
-    if(cc->connect_timeout)
-    {
-        c = redisConnectWithTimeout(ip, port, *cc->connect_timeout);
-    }
-    else
-    {
-        c = redisConnect(ip, port);
-    }
-        
-    if (c == NULL)
-    {
-        __redisClusterSetError(cc,REDIS_ERR_OTHER,
-            "init redis context error(return NULL)");
-        goto error;
-    }
-    else if(c->err)
-    {
-        __redisClusterSetError(cc,c->err,c->errstr);
-        goto error;
-    }
-
-    reply = redisCommand(c, REDIS_COMMAND_CLUSTER_NODES);
-
-    if(reply == NULL)
-    {
-        __redisClusterSetError(cc,REDIS_ERR_OTHER,
-            "command(cluster nodes) reply error(NULL)");
-        goto error;
-    }
-    else if(reply->type != REDIS_REPLY_STRING)
-    {
-        if(reply->type == REDIS_REPLY_ERROR)
-        {
-            __redisClusterSetError(cc,REDIS_ERR_OTHER,
-                reply->str);
-        }
-        else
-        {
-            __redisClusterSetError(cc,REDIS_ERR_OTHER,
-                "command(cluster nodes) reply error(type is not string)");
-        }
-        
-        goto error;
-    }
-
-    nodes = dictCreate(&clusterNodesDictType, NULL);
-    
-    slots = hiarray_create(10, sizeof(cluster_slot*));
-    if(slots == NULL)
-    {
-        __redisClusterSetError(cc,REDIS_ERR_OTHER,
-            "array create error");
-        goto error;
-    }
-
-    start = reply->str;
-    end = start + reply->len;
-    
-    line_start = start;
-
-    for(pos = start; pos < end; pos ++)
-    {
-        if(*pos == '\n')
-        {
-            line_end = pos - 1;
-            len = line_end - line_start;
-            
-            part = sdssplitlen(line_start, len + 1, " ", 1, &count_part);
-
-            if(part == NULL || count_part < 8)
-            {
-                __redisClusterSetError(cc,REDIS_ERR_OTHER,
-                    "split cluster nodes error");
-                goto error;
-            }
-
-            //the address string is ":0", skip this node.
-            if(sdslen(part[1]) == 2 && strcmp(part[1], ":0") == 0)
-            {
-                sdsfreesplitres(part, count_part);
-                count_part = 0;
-                part = NULL;
-                
-                start = pos + 1;
-                line_start = start;
-                pos = start;
-                
-                continue;
-            }
-
-            if(sdslen(part[2]) >= 7 && memcmp(part[2], "myself,", 7) == 0)
-            {
-                role_len = sdslen(part[2]) - 7;
-                role = part[2] + 7;
-                myself = 1;
-            }
-            else
-            {
-                role_len = sdslen(part[2]);
-                role = part[2];
-            }
-
-            //add master node
-            if(role_len >= 6 && memcmp(role, "master", 6) == 0)
-            {
-                if(count_part < 8)
-                {
-                    __redisClusterSetError(cc,REDIS_ERR_OTHER,
-                        "master node part number error");
-                    goto error;
-                }
-                
-                master = node_get_with_nodes(cc, 
-                    part, count_part, REDIS_ROLE_MASTER);
-                if(master == NULL)
-                {
-                    goto error;
-                }
-
-                ret = dictAdd(nodes, 
-                    sdsnewlen(master->addr, sdslen(master->addr)), master);
-                if(ret != DICT_OK)
-                {
-                    __redisClusterSetError(cc,REDIS_ERR_OTHER,
-                        "the address already exists in the nodes");
-                    cluster_node_deinit(master);
-                    hi_free(master);
-                    goto error;
-                }
-
-                if(cc->flags & HIRCLUSTER_FLAG_ADD_SLAVE)
-                {
-                    ret = cluster_master_slave_mapping_with_name(cc, 
-                        &nodes_name, master, master->name);
-                    if(ret != REDIS_OK)
-                    {
-                        cluster_node_deinit(master);
-                        hi_free(master);
-                        goto error;
-                    }
-                }
-                
-                if(myself == 1)
-                {
-                    master->con = c;
-                    c = NULL;
-                }
-                
-                for(k = 8; k < count_part; k ++)
-                {
-                    slot_start_end = sdssplitlen(part[k], 
-                        sdslen(part[k]), "-", 1, &count_slot_start_end);
-                    
-                    if(slot_start_end == NULL)
-                    {
-                        __redisClusterSetError(cc,REDIS_ERR_OTHER,
-                            "split slot start end error(NULL)");
-                        goto error;
-                    }
-                    else if(count_slot_start_end == 1)
-                    {
-                        slot_start = 
-                            hi_atoi(slot_start_end[0], sdslen(slot_start_end[0]));
-                        slot_end = slot_start;
-                    }
-                    else if(count_slot_start_end == 2)
-                    {
-                        slot_start = 
-                            hi_atoi(slot_start_end[0], sdslen(slot_start_end[0]));;
-                        slot_end = 
-                            hi_atoi(slot_start_end[1], sdslen(slot_start_end[1]));;
-                    }
-                    else
-                    {
-                        slot_start = -1;
-                        slot_end = -1;
-                    }
-                    
-                    sdsfreesplitres(slot_start_end, count_slot_start_end);
-                    count_slot_start_end = 0;
-                    slot_start_end = NULL;
-
-                    if(slot_start < 0 || slot_end < 0 || 
-                        slot_start > slot_end || slot_end >= REDIS_CLUSTER_SLOTS)
-                    {
-                        continue;
-                    }
-
-                    for(j = slot_start; j <= slot_end; j ++)
-                    {
-                        if(table[j] != NULL)
-                        {
-                            __redisClusterSetError(cc,REDIS_ERR_OTHER,
-                                "diffent node hold a same slot");
-                            goto error;
-                        }
-                        table[j] = master;
-                    }
-                    
-                    slot = hiarray_push(slots);
-                    if(slot == NULL)
-                    {
-                        __redisClusterSetError(cc,REDIS_ERR_OTHER,
-                            "slot push in array error");
-                        goto error;
-                    }
-
-                    *slot = cluster_slot_create(master);
-                    if(*slot == NULL)
-                    {
-                        __redisClusterSetError(cc,REDIS_ERR_OOM,
-                            "Out of memory");
-                        goto error;
-                    }
-
-                    (*slot)->start = (uint32_t)slot_start;
-                    (*slot)->end = (uint32_t)slot_end;                    
-                }
-
-            }
-            //add slave node
-            else if((cc->flags & HIRCLUSTER_FLAG_ADD_SLAVE) && 
-                (role_len >= 5 && memcmp(role, "slave", 5) == 0))
-            {
-                slave = node_get_with_nodes(cc, part, 
-                    count_part, REDIS_ROLE_SLAVE);
-                if(slave == NULL)
-                {
-                    goto error;
-                }
-
-                ret = cluster_master_slave_mapping_with_name(cc, 
-                    &nodes_name, slave, part[3]);
-                if(ret != REDIS_OK)
-                {
-                    cluster_node_deinit(slave);
-                    hi_free(slave);
-                    goto error;
-                }
-                
-                if(myself == 1)
-                {
-                    slave->con = c;
-                    c = NULL;
-                }
-            }
-
-            if(myself == 1)
-            {
-                myself = 0;
-            }
-
-            sdsfreesplitres(part, count_part);
-            count_part = 0;
-            part = NULL;
-            
-            start = pos + 1;
-            line_start = start;
-            pos = start;
-        }
-    }
-
-    if(cc->slots != NULL)
-    {
-        cc->slots->nelem = 0;
-        hiarray_destroy(cc->slots);
-        cc->slots = NULL;
-    }
-    cc->slots = slots;
-
-    cluster_nodes_swap_ctx(cc->nodes, nodes);
-
-    if(cc->nodes != NULL)
-    {
-        dictRelease(cc->nodes);
-        cc->nodes = NULL;
-    }
-    cc->nodes = nodes;
-
-    hiarray_sort(cc->slots, cluster_slot_start_cmp);
-
-    memcpy(cc->table, table, REDIS_CLUSTER_SLOTS*sizeof(cluster_node *));
-    cc->route_version ++;
-    
-    freeReplyObject(reply);
-
-    if(c != NULL)
-    {
-        redisFree(c);
-    }
-
-    if(nodes_name != NULL)
-    {
-        dictRelease(nodes_name);
-    }
-    
-    return REDIS_OK;
-
-error:
-        
-    if(part != NULL)
-    {
-        sdsfreesplitres(part, count_part);
-        count_part = 0;
-        part = NULL;
-    }
-
-    if(slot_start_end != NULL)
-    {
-        sdsfreesplitres(slot_start_end, count_slot_start_end);
-        count_slot_start_end = 0;
-        slot_start_end = NULL;
-    }
-
-    if(slots != NULL)
-    {
-        if(slots == cc->slots)
-        {
-            cc->slots = NULL;
-        }
-
-        slots->nelem = 0;
-        hiarray_destroy(slots);
-    }
-
-    if(nodes != NULL)
-    {
-        if(nodes == cc->nodes)
-        {
-            cc->nodes = NULL;
-        }
-
-        dictRelease(nodes);
-    }
-
-    if(nodes_name != NULL)
-    {
-        dictRelease(nodes_name);
-    }
-
-    if(reply != NULL)
-    {
-        freeReplyObject(reply);
-        reply = NULL;
-    }
-
-    if(c != NULL)
-    {
-        redisFree(c);
-    }
-    
-    return REDIS_ERR;
-}
-
 int
 cluster_update_route(redisClusterContext *cc)
 {
@@ -1967,6 +1574,7 @@ cluster_update_route(redisClusterContext *cc)
     return REDIS_ERR;
 }
 
+#ifdef DEBUG
 static void print_cluster_node_list(redisClusterContext *cc)
 {
     dictIterator *di = NULL;
@@ -1984,11 +1592,11 @@ static void print_cluster_node_list(redisClusterContext *cc)
     di = dictGetIterator(cc->nodes);
 
     printf("name\taddress\trole\tslaves\n");
-    
+
     while((de = dictNext(di)) != NULL) {
         master = dictGetEntryVal(de);
 
-        printf("%s\t%s\t%d\t%s\n",master->name, master->addr, 
+        printf("%s\t%s\t%d\t%s\n",master->name, master->addr,
             master->role, master->slaves?"hava":"null");
 
         slaves = master->slaves;
@@ -1996,12 +1604,12 @@ static void print_cluster_node_list(redisClusterContext *cc)
         {
             continue;
         }
-        
+
         it = listGetIterator(slaves, AL_START_HEAD);
         while((ln = listNext(it)) != NULL)
         {
             slave = listNodeValue(ln);
-            printf("%s\t%s\t%d\t%s\n",slave->name, slave->addr, 
+            printf("%s\t%s\t%d\t%s\n",slave->name, slave->addr,
                 slave->role, slave->slaves?"hava":"null");
         }
 
@@ -2010,16 +1618,18 @@ static void print_cluster_node_list(redisClusterContext *cc)
         printf("\n");
     }
 }
-
+#endif /* DEBUG */
 
 int test_cluster_update_route(redisClusterContext *cc)
 {
     int ret;
-    
+
     ret = cluster_update_route(cc);
 
-    //print_cluster_node_list(cc);
-    
+#ifdef DEBUG
+    print_cluster_node_list(cc);
+#endif /* DEBUG */
+
     return ret;
 }
 
@@ -2425,7 +2035,7 @@ int redisClusterSetOptionTimeout(redisClusterContext *cc, const struct timeval t
 
             di = dictGetIterator(cc->nodes);
 
-            while (de=dictNext(di))
+            while ((de = dictNext(di)) != NULL)
             {
                 node = dictGetEntryVal(de);
                 if (node->con && node->con->flags&REDIS_CONNECTED && node->con->err == 0)
@@ -2440,7 +2050,7 @@ int redisClusterSetOptionTimeout(redisClusterContext *cc, const struct timeval t
                     listNode *ln;
                     
                     li = listGetIterator(node->slaves, AL_START_HEAD);
-                    while (ln = listNext(li))
+                    while ((ln = listNext(li)) != NULL)
                     {
                         slave = listNodeValue(ln);
                         if (slave->con && slave->con->flags&REDIS_CONNECTED && slave->con->err == 0)
@@ -2529,75 +2139,6 @@ redisContext *ctx_get_by_node(redisClusterContext *cc, cluster_node *node)
     return c;
 }
 
-static cluster_node *node_get_by_slot(redisClusterContext *cc, uint32_t slot_num)
-{
-    struct hiarray *slots;
-    uint32_t slot_count;
-    cluster_slot **slot;
-    uint32_t middle, start, end;
-    uint8_t stop = 0;
-    
-    if(cc == NULL)
-    {
-        return NULL;
-    }
-
-    if(slot_num >= REDIS_CLUSTER_SLOTS)
-    {
-        return NULL;
-    }
-
-    slots = cc->slots;
-    if(slots == NULL)
-    {
-        return NULL;
-    }
-    slot_count = hiarray_n(slots);
-
-    start = 0;
-    end = slot_count - 1;
-    middle = 0;
-
-    do{
-        if(start >= end)
-        {
-            stop = 1;
-            middle = end;
-        }
-        else
-        {
-            middle = start + (end - start)/2;
-        }
-
-        ASSERT(middle < slot_count);
-
-        slot = hiarray_get(slots, middle);
-        if((*slot)->start > slot_num)
-        {
-            end = middle - 1;
-        }
-        else if((*slot)->end < slot_num)
-        {
-            start = middle + 1;
-        }
-        else
-        {
-            return (*slot)->node;
-        }
-            
-        
-    }while(!stop);
-
-    printf("slot_num : %d\n", slot_num);
-    printf("slot_count : %d\n", slot_count);
-    printf("start : %d\n", start);
-    printf("end : %d\n", end);
-    printf("middle : %d\n", middle);
-
-    return NULL;
-}
-
-
 static cluster_node *node_get_by_table(redisClusterContext *cc, uint32_t slot_num)
 {   
     if(cc == NULL)
@@ -2663,68 +2204,6 @@ static cluster_node *node_get_witch_connected(redisClusterContext *cc)
     dictReleaseIterator(di);
 
     return NULL;
-}
-
-static int slot_get_by_command(redisClusterContext *cc, char *cmd, int len)
-{
-    struct cmd *command = NULL;
-    struct keypos *kp;
-    int key_count;
-    uint32_t i;
-    int slot_num = -1;
-
-    if(cc == NULL || cmd == NULL || len <= 0)
-    {
-        goto done;
-    }
-
-    command = command_get();
-    if(command == NULL)
-    {
-        __redisClusterSetError(cc,REDIS_ERR_OOM,"Out of memory");
-        goto done;
-    }
-    
-    command->cmd = cmd;
-    command->clen = len;
-    redis_parse_cmd(command);
-    if(command->result != CMD_PARSE_OK)
-    {
-        __redisClusterSetError(cc, REDIS_ERR_PROTOCOL, "parse command error");
-        goto done;
-    }
-
-    key_count = hiarray_n(command->keys);
-
-    if(key_count <= 0)
-    {
-        __redisClusterSetError(cc, REDIS_ERR_OTHER, "no keys in command(must have keys for redis cluster mode)");
-        goto done;
-    }
-    else if(key_count == 1)
-    {
-        kp = hiarray_get(command->keys, 0);
-        slot_num = keyHashSlot(kp->start, kp->end - kp->start);
-
-        goto done;
-    }
-    
-    for(i = 0; i < hiarray_n(command->keys); i ++)
-    {
-        kp = hiarray_get(command->keys, i);
-
-        slot_num = keyHashSlot(kp->start, kp->end - kp->start);
-    }
-
-done:
-    
-    if(command != NULL)
-    {
-        command->cmd = NULL;
-        command_destroy(command);
-    }
-    
-    return slot_num;
 }
 
 /* Get the cluster config from one node.

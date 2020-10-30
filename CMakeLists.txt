@@ -37,16 +37,16 @@ IF(WIN32 OR MINGW)
         hiredis_vip.def)
 ENDIF()
 
+add_library(hiredis_vip
+  SHARED
+  ${hiredis_vip_SOURCES})
+
 if(MSVC)
   # MS Visual: Suppress warnings
-  add_compile_options("/wd 4267" "/wd 4244")
+  target_compile_options(hiredis_vip PRIVATE "/wd 4267" "/wd 4244")
 else()
-  add_compile_options(-Wall -Wextra -pedantic)
-  # add_compile_options(-Wall -Wextra -pedantic -Werror)
+  target_compile_options(hiredis_vip PRIVATE -Wall -Wextra -pedantic -Werror)
 endif()
-
-ADD_LIBRARY(hiredis_vip SHARED
-    ${hiredis_vip_SOURCES})
 
 SET_TARGET_PROPERTIES(hiredis_vip
     PROPERTIES
