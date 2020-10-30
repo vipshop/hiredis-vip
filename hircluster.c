@@ -1518,17 +1518,6 @@ cluster_update_route(redisClusterContext *cc)
         return REDIS_ERR;
     }
 
-    if(cc->ip != NULL && cc->port > 0)
-    {
-        ret = cluster_update_route_by_addr(cc, cc->ip, cc->port);
-        if(ret == REDIS_OK)
-        {
-            return REDIS_OK;
-        }
-
-        flag_err_not_set = 0;
-    }
-
     if(cc->nodes == NULL)
     {
         if(flag_err_not_set)
@@ -1642,8 +1631,6 @@ redisClusterContext *redisClusterContextInit(void) {
 
     cc->err = 0;
     cc->errstr[0] = '\0';
-    cc->ip = NULL;
-    cc->port = 0;
     cc->flags = 0;
     cc->connect_timeout = NULL;
     cc->timeout = NULL;
@@ -1668,12 +1655,6 @@ void redisClusterFree(redisClusterContext *cc) {
     
     if (cc == NULL)
         return;
-
-    if(cc->ip)
-    {
-        sdsfree(cc->ip);
-        cc->ip = NULL;
-    }
 
     if (cc->connect_timeout)
     {

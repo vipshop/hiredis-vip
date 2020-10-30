@@ -77,8 +77,6 @@ extern "C" {
 typedef struct redisClusterContext {
     int err; /* Error flags, 0 when there is no error */
     char errstr[128]; /* String representation of error when applicable */
-    sds ip;
-    int port;
 
     int flags;
 
