@@ -30,25 +30,25 @@
 
 #ifndef __HIREDIS_VIP_AE_H__
 #define __HIREDIS_VIP_AE_H__
-#include <hiredis/adapters/ae.h>
 
 #include "../hircluster.h"
+#include <hiredis/adapters/ae.h>
 
 static int redisAeAttach_link(redisAsyncContext *ac, void *base)
 {
-	redisAeAttach((aeEventLoop *)base, ac);
+    return redisAeAttach((aeEventLoop *)base, ac);
 }
 
 static int redisClusterAeAttach(aeEventLoop *loop, redisClusterAsyncContext *acc) {
 
-	if(acc == NULL || loop == NULL)
-	{
-		return REDIS_ERR;
-	}
+    if(acc == NULL || loop == NULL)
+    {
+        return REDIS_ERR;
+    }
 
-	acc->adapter = loop;
-	acc->attach_fn = redisAeAttach_link;
-	
+    acc->adapter = loop;
+    acc->attach_fn = redisAeAttach_link;
+
     return REDIS_OK;
 }
 

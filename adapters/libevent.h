@@ -30,11 +30,12 @@
 
 #ifndef __HIREDIS_VIP_LIBEVENT_H__
 #define __HIREDIS_VIP_LIBEVENT_H__
-#include <hiredis/adapters/libevent.h>
+
 #include "../hircluster.h"
+#include <hiredis/adapters/libevent.h>
 
 static int redisLibeventAttach_link(redisAsyncContext *ac, void *base) {
-    redisLibeventAttach(ac, (struct event_base *)base);
+    return redisLibeventAttach(ac, (struct event_base *)base);
 }
 
 static int redisClusterLibeventAttach(redisClusterAsyncContext *acc, struct event_base *base) {
@@ -46,7 +47,7 @@ static int redisClusterLibeventAttach(redisClusterAsyncContext *acc, struct even
 
     acc->adapter = base;
     acc->attach_fn = redisLibeventAttach_link;
-    
+
     return REDIS_OK;
 }
 
