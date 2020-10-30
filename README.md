@@ -327,14 +327,12 @@ Build the examples
 ```
 mkdir build_examples
 cd build_examples
-cmake ../examples_cmakebuild
+cmake ../examples
 make
 
 # Run
 ./examples/src/examples-build/examples
 ./examples/src/examples-build/examples_async
-./examples/src/examples-build/examples_ipv6
-./examples/src/examples-build/examples_tls
 ```
 
 ## AUTHORS

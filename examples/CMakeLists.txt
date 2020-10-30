@@ -1,29 +1,37 @@
 cmake_minimum_required(VERSION 3.14)
 
-project(examples CXX)
+project(hiredis_vip_externalproject C)
 
 include(ExternalProject)
 
-# Handle libevent and hiredis
-find_library(EVENT_LIBRARY event HINTS /usr/lib/x86_64-linux-gnu)
-find_package(hiredis REQUIRED)
-find_package(hiredis_vip REQUIRED)
+ExternalProject_Add(hiredis
+  PREFIX hiredis
+  GIT_REPOSITORY  https://github.com/redis/hiredis
+  GIT_TAG         v1.0.0
+  CMAKE_CACHE_ARGS
+    "-DENABLE_SSL:BOOL=ON"
+    "-DCMAKE_BUILD_TYPE:STRING=Debug"
+    "-DCMAKE_INSTALL_PREFIX:PATH=${CMAKE_CURRENT_BINARY_DIR}/hiredis"
+)
 
-include_directories("${hiredis_INCLUDE_DIRS}")
-include_directories("${hiredis_vip_INCLUDE_DIRS}")
+ExternalProject_Add(hiredis_vip
+  PREFIX hiredis_vip
+  SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/.."
+  CMAKE_CACHE_ARGS
+    "-DCMAKE_BUILD_TYPE:STRING=Debug"
+    "-DCMAKE_INSTALL_PREFIX:PATH=${CMAKE_CURRENT_BINARY_DIR}/hiredis_vip"
+    "-Dhiredis_DIR:PATH=${CMAKE_CURRENT_BINARY_DIR}/hiredis/share/hiredis"
+  DEPENDS hiredis
+)
 
-# Executable: IPv4
-add_executable(${PROJECT_NAME} main.cpp)
-target_link_libraries(${PROJECT_NAME} ${hiredis_LIBRARIES} ${hiredis_vip_LIBRARIES})
-
-# Executable: IPv6
-add_executable(${PROJECT_NAME}_ipv6 main_ipv6.cpp)
-target_link_libraries(${PROJECT_NAME}_ipv6 ${hiredis_LIBRARIES} ${hiredis_vip_LIBRARIES})
-
-# Executable: async
-add_executable(${PROJECT_NAME}_async main_async.cpp)
-target_link_libraries(${PROJECT_NAME}_async ${hiredis_LIBRARIES} ${hiredis_vip_LIBRARIES} ${EVENT_LIBRARY})
-
-# Executable: tls
-add_executable(${PROJECT_NAME}_tls main_async.cpp)
-target_link_libraries(${PROJECT_NAME}_tls ${hiredis_LIBRARIES} ${hiredis_vip_LIBRARIES} ${EVENT_LIBRARY})
+ExternalProject_Add(examples
+  PREFIX examples
+  SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src"
+  INSTALL_COMMAND ""
+  CMAKE_CACHE_ARGS
+    "-DCMAKE_BUILD_TYPE:STRING=Debug"
+    "-DCMAKE_INSTALL_PREFIX:PATH=${CMAKE_CURRENT_BINARY_DIR}/examples"
+    "-Dhiredis_DIR:PATH=${CMAKE_CURRENT_BINARY_DIR}/hiredis/share/hiredis"
+    "-Dhiredis_vip_DIR:PATH=${CMAKE_CURRENT_BINARY_DIR}/hiredis_vip/share/hiredis_vip"
+  DEPENDS hiredis_vip
+)
