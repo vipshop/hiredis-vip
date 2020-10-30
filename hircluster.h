@@ -80,7 +80,6 @@ typedef struct redisClusterContext {
 
     int flags;
 
-    enum redisConnectionType connection_type;
     struct timeval *connect_timeout;
 
     struct timeval *timeout;    /* receive and send timeout. */
