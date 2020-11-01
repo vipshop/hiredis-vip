@@ -2538,6 +2538,7 @@ int redisClusterAuth(redisClusterContext *cc, redisContext *c)
                 "Command(Auth) reply error: reply->str is not OK.");
         goto error;
     }
+    freeReplyObject(reply);
     return REDIS_OK;
 error:
     if(reply != NULL){
