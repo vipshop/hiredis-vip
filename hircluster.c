@@ -1315,6 +1315,12 @@ cluster_update_route_by_addr(redisClusterContext *cc,
         redisSetTimeout(c, *cc->timeout);
     }
 
+#ifdef SSL_SUPPORT
+    if (redisInitiateSSLWithContext(c, cc->ssl) != REDIS_OK) {
+        __redisClusterSetError(cc, c->err, c->errstr);
+        goto error;
+    }
+#endif
     if(cc->flags & HIRCLUSTER_FLAG_ROUTE_USE_SLOTS){
         reply = redisCommand(c, REDIS_COMMAND_CLUSTER_SLOTS);
         if(reply == NULL){
@@ -1648,6 +1654,9 @@ redisClusterContext *redisClusterContextInit(void) {
 
     cc->flags |= REDIS_BLOCK;
     
+#ifdef SSL_SUPPORT
+    cc->ssl = NULL;
+#endif
     return cc;
 }
 
@@ -2063,6 +2072,18 @@ int redisClusterSetOptionMaxRedirect(redisClusterContext *cc, int max_redirect_c
     return REDIS_OK;
 }
 
+#ifdef SSL_SUPPORT
+int redisClusterSetOptionEnableSSL(redisClusterContext *cc, redisSSLContext *ssl) {
+    if(cc == NULL || ssl == NULL) {
+        return REDIS_ERR;
+    }
+
+    cc->ssl = ssl;
+
+    return REDIS_OK;
+}
+#endif
+
 int redisClusterConnect2(redisClusterContext *cc)
 {
     
@@ -2089,6 +2110,12 @@ redisContext *ctx_get_by_node(redisClusterContext *cc, cluster_node *node)
         {
             redisReconnect(c);
 
+#ifdef SSL_SUPPORT
+            if (redisInitiateSSLWithContext(c, cc->ssl) != REDIS_OK) {
+                __redisClusterSetError(cc, c->err, c->errstr);
+            }
+#endif
+
             if (cc->timeout && c->err == 0) {
                 redisSetTimeout(c, *cc->timeout);
             }
@@ -2114,6 +2141,14 @@ redisContext *ctx_get_by_node(redisClusterContext *cc, cluster_node *node)
     if (cc->timeout && c != NULL && c->err == 0) {
         redisSetTimeout(c, *cc->timeout);
     }
+
+#ifdef SSL_SUPPORT
+    if (redisInitiateSSLWithContext(c, cc->ssl) != REDIS_OK) {
+        __redisClusterSetError(cc, c->err, c->errstr);
+        redisFree(c);
+        return NULL;
+    }
+#endif
 
     node->con = c;
 

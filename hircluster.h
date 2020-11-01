@@ -6,6 +6,9 @@
 #include <hiredis/async.h>
 
 #define UNUSED(x) (void)(x)
+#ifdef SSL_SUPPORT
+#include <hiredis/hiredis_ssl.h>
+#endif
 
 #define HIREDIS_VIP_MAJOR 0
 #define HIREDIS_VIP_MINOR 4
@@ -98,6 +101,11 @@ typedef struct redisClusterContext {
 
     int need_update_route;
     int64_t update_route_time;
+
+#ifdef SSL_SUPPORT
+    redisSSLContext *ssl;
+#endif
+
 } redisClusterContext;
 
 redisClusterContext *redisClusterConnect(const char *addrs, int flags);
@@ -118,6 +126,9 @@ int redisClusterSetOptionRouteUseSlots(redisClusterContext *cc);
 int redisClusterSetOptionConnectTimeout(redisClusterContext *cc, const struct timeval tv);
 int redisClusterSetOptionTimeout(redisClusterContext *cc, const struct timeval tv);
 int redisClusterSetOptionMaxRedirect(redisClusterContext *cc,  int max_redirect_count);
+#ifdef SSL_SUPPORT
+int redisClusterSetOptionEnableSSL(redisClusterContext *cc, redisSSLContext *ssl);
+#endif
 
 int redisClusterConnect2(redisClusterContext *cc);
 
