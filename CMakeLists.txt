@@ -65,23 +65,31 @@ if(DOWNLOAD_HIREDIS)
   # Disable tests in hiredis
   set(DISABLE_TESTS_OLD ${DISABLE_TESTS})
   set(DISABLE_TESTS ON CACHE INTERNAL "")
+  set(ENABLE_SSL ON CACHE INTERNAL "")
   FetchContent_MakeAvailable(hiredis)
   set(DISABLE_TESTS ${DISABLE_TESTS_OLD} CACHE INTERNAL "")
 
-  # Create an empty *Config.cmake for find_package
+  # Create an empty *-config.cmake for find_package
   # See: https://github.com/abandonware-pjz37/cmake-find-package-include/blob/master/hooks/fetch.cmake
   set(stub_dir "${CMAKE_CURRENT_BINARY_DIR}/generated/pkg")
-  file(WRITE "${stub_dir}/hiredisConfig.cmake" "")
+  file(WRITE "${stub_dir}/hiredis-config.cmake" "")
+  file(WRITE "${stub_dir}/hiredis_ssl-config.cmake" "")
   set(hiredis_DIR ${stub_dir})
+  set(hiredis_ssl_DIR ${stub_dir})
 
-  # Set variables normally got from hiredisConfig.cmake
+  # Set variables normally got from hiredis-config.cmake
   SET(hiredis_LIBRARIES hiredis::hiredis)
   SET(hiredis_INCLUDE_DIRS "${CMAKE_CURRENT_BINARY_DIR}/_deps")
+
+  # Set variables normally got from hiredis_ssl-config.cmake
+  SET(hiredis_ssl_LIBRARIES hiredis::hiredis_ssl)
+  SET(hiredis_INCLUDE_DIRS "${CMAKE_CURRENT_BINARY_DIR}/_deps")
 else()
-  message("Expecting to find dependency 'hiredis' in path..")
+  message("Expecting to find dependency 'hiredis' and 'hiredis_ssl' in path..")
 endif()
 
 find_package(hiredis REQUIRED)
+find_package(hiredis_ssl REQUIRED)
 
 target_include_directories(hiredis_vip PUBLIC
   $<BUILD_INTERFACE:${hiredis_INCLUDE_DIRS}>

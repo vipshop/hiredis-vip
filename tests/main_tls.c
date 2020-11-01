@@ -1,11 +1,23 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "hircluster.h"
+#include "hiredis_ssl.h"   // REMOVE ??
 
 int main(int argc, char **argv)
 {
     UNUSED(argc);
     UNUSED(argv);
+
+    redisSSLContext *ssl;
+    redisSSLContextError ssl_error;
+
+    redisInitOpenSSL();
+    ssl = redisCreateSSLContext("ca.crt", NULL, "redis.crt", "redis.key", NULL, &ssl_error);
+    if (!ssl) {
+        printf("SSL Context error: %s\n",
+               redisSSLContextGetError(ssl_error));
+        exit(1);
+    }
 
     struct timeval timeout = { 1, 500000 }; // 1.5s
 
