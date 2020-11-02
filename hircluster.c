@@ -1316,9 +1316,11 @@ cluster_update_route_by_addr(redisClusterContext *cc,
     }
 
 #ifdef SSL_SUPPORT
-    if (redisInitiateSSLWithContext(c, cc->ssl) != REDIS_OK) {
-        __redisClusterSetError(cc, c->err, c->errstr);
-        goto error;
+    if (cc->ssl) {
+        if (redisInitiateSSLWithContext(c, cc->ssl) != REDIS_OK) {
+            __redisClusterSetError(cc, c->err, c->errstr);
+            goto error;
+        }
     }
 #endif
     if(cc->flags & HIRCLUSTER_FLAG_ROUTE_USE_SLOTS){
@@ -2111,8 +2113,10 @@ redisContext *ctx_get_by_node(redisClusterContext *cc, cluster_node *node)
             redisReconnect(c);
 
 #ifdef SSL_SUPPORT
-            if (redisInitiateSSLWithContext(c, cc->ssl) != REDIS_OK) {
-                __redisClusterSetError(cc, c->err, c->errstr);
+            if (cc->ssl) {
+                if (redisInitiateSSLWithContext(c, cc->ssl) != REDIS_OK) {
+                    __redisClusterSetError(cc, c->err, c->errstr);
+                }
             }
 #endif
 
@@ -2143,10 +2147,12 @@ redisContext *ctx_get_by_node(redisClusterContext *cc, cluster_node *node)
     }
 
 #ifdef SSL_SUPPORT
-    if (redisInitiateSSLWithContext(c, cc->ssl) != REDIS_OK) {
-        __redisClusterSetError(cc, c->err, c->errstr);
-        redisFree(c);
-        return NULL;
+    if (cc->ssl) {
+        if (redisInitiateSSLWithContext(c, cc->ssl) != REDIS_OK) {
+            __redisClusterSetError(cc, c->err, c->errstr);
+            redisFree(c);
+            return NULL;
+        }
     }
 #endif
 
