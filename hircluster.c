@@ -3734,17 +3734,6 @@ void redisClusterReset(redisClusterContext *cc)
 
 /*############redis cluster async############*/
 
-/* We want the error field to be accessible directly instead of requiring
- * an indirection to the redisContext struct. */
-static void __redisClusterAsyncCopyError(redisClusterAsyncContext *acc) {
-    if (!acc)
-        return;
-
-    redisClusterContext *cc = acc->cc;
-    acc->err = cc->err;
-    memcpy(acc->errstr, cc->errstr, 128);
-}
-
 static void __redisClusterAsyncSetError(redisClusterAsyncContext *acc, 
     int type, const char *str) {
     
@@ -3777,7 +3766,12 @@ static redisClusterAsyncContext *redisClusterAsyncInitialize(redisClusterContext
 
     acc->cc = cc;
 
-    acc->err = 0;
+    /* We want the error field to be accessible directly instead of requiring
+     * an indirection to the redisContext struct. */
+    // TODO: really needed?
+    acc->err = cc->err;
+    memcpy(acc->errstr, cc->errstr, 128);
+
     acc->data = NULL;
     acc->adapter = NULL;
     acc->attach_fn = NULL;
@@ -3955,9 +3949,7 @@ redisClusterAsyncContext *redisClusterAsyncConnect(const char *addrs, int flags)
         redisClusterFree(cc);
         return NULL;
     }
-    
-    __redisClusterAsyncCopyError(acc);
-    
+
     return acc;
 }
 
