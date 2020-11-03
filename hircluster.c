@@ -33,9 +33,9 @@
 
 #define REDIS_PROTOCOL_ASKING "*1\r\n$6\r\nASKING\r\n"
 
-#define IP_PORT_SEPARATOR ":"
+#define IP_PORT_SEPARATOR ':'
 
-#define PORT_CPORT_SEPARATOR "@"
+#define PORT_CPORT_SEPARATOR '@'
 
 #define CLUSTER_ADDRESS_SEPARATOR ","
 
@@ -537,86 +537,71 @@ error:
 /**
   * Return a new node with the "cluster nodes" command reply.
   */
-static cluster_node *node_get_with_nodes(
-    redisClusterContext *cc,
-    sds *node_infos, int info_count, uint8_t role)
+static cluster_node *node_get_with_nodes(redisClusterContext *cc,
+                                         sds *node_infos, int info_count, uint8_t role)
 {
-    sds* ip_port = NULL;
-    int count_ip_port = 0;
-    char *port = NULL, *port_context = NULL;
+    char *p = NULL;
+    char *port = NULL;
     cluster_node *node;
 
-    if(info_count < 8)
-    {
+    if(info_count < 8) {
         return NULL;
     }
 
     node = hi_alloc(sizeof(cluster_node));
-    if(node == NULL)
-    {
-        __redisClusterSetError(cc,
-            REDIS_ERR_OOM,"Out of memory");
-        goto error;
+    if(node == NULL) {
+        __redisClusterSetError(cc, REDIS_ERR_OOM, "Out of memory");
+        return NULL;
     }
-    
     cluster_node_init(node);
 
-    if(role == REDIS_ROLE_MASTER)
-    {
+    if(role == REDIS_ROLE_MASTER) {
         node->slots = listCreate();
-        if(node->slots == NULL)
-        {
-            hi_free(node);
-            __redisClusterSetError(cc,REDIS_ERR_OTHER,
-                "slots for node listCreate error");
+        if(node->slots == NULL) {
+            __redisClusterSetError(cc, REDIS_ERR_OTHER, "slots for node listCreate error");
             goto error;
         }
 
         node->slots->free = listClusterSlotDestructor;
     }
-    
-    node->name = node_infos[0]; 
-    node->addr = node_infos[1];
-    
-    ip_port = sdssplitlen(node_infos[1], sdslen(node_infos[1]), 
-        IP_PORT_SEPARATOR, strlen(IP_PORT_SEPARATOR), &count_ip_port);
-    if(ip_port == NULL || count_ip_port != 2)
-    {
-        __redisClusterSetError(cc,REDIS_ERR_OTHER,
-            "split ip port error");
-        goto error;
-    }
-    node->host = ip_port[0];
 
-    port = strtok_r(ip_port[1], PORT_CPORT_SEPARATOR, &port_context);
-    if (port == NULL)
-    {
-        __redisClusterSetError(cc, REDIS_ERR_OTHER,
-            "error parsing port");
-        goto error;
-    }
-    node->port = hi_atoi(port, strlen(port));
+    node->name = node_infos[0];
+    node->addr = node_infos[1];
     node->role = role;
 
-    sdsfree(ip_port[1]);
-    free(ip_port);
+    // Get host part
+    if ((p = strrchr(node_infos[1], IP_PORT_SEPARATOR)) == NULL) {
+        __redisClusterSetError(cc, REDIS_ERR_OTHER, "server address is incorrect, port separator missing.");
+        goto error;
+    }
 
+    node->host = sdsnewlen(node_infos[1], p - node_infos[1]);
+    p++; // remove found separator character
+
+    // Strip away cport if given by redis
+    size_t port_len;
+    if ((port = strchr(p, PORT_CPORT_SEPARATOR)) == NULL) {
+        port_len = strlen(p);
+    } else {
+        port_len = port-p;
+    }
+    node->port = hi_atoi(p, port_len);
+
+    // Ownership moved to node
     node_infos[0] = NULL;
     node_infos[1] = NULL;
-    
+
     return node;
 
 error:
-    if(ip_port != NULL)
-    {
-        sdsfreesplitres(ip_port, count_ip_port);
-    }
 
-    if(node != NULL)
-    {
-        hi_free(node);
+    if (node->slots) {
+        listRelease(node->slots);
     }
-
+    if (node->host) {
+        sdsfree(node->host);
+    }
+    hi_free(node);
     return NULL;
 }
 
@@ -1804,22 +1789,17 @@ int redisClusterSetOptionAddNode(redisClusterContext *cc, const char *addr)
 {
     dictEntry *node_entry;
     cluster_node *node;
-    sds *ip_port = NULL;
-    int ip_port_count = 0;
     sds ip;
     int port;
     sds addr_sds = NULL;
-    
-    if(cc == NULL)
-    {
+
+    if(cc == NULL) {
         return REDIS_ERR;
     }
 
-    if(cc->nodes == NULL)
-    {
+    if(cc->nodes == NULL) {
         cc->nodes = dictCreate(&clusterNodesDictType, NULL);
-        if(cc->nodes == NULL)
-        {
+        if(cc->nodes == NULL) {
             return REDIS_ERR;
         }
     }
@@ -1827,51 +1807,48 @@ int redisClusterSetOptionAddNode(redisClusterContext *cc, const char *addr)
     addr_sds = sdsnew(addr);
     node_entry = dictFind(cc->nodes, addr_sds);
     sdsfree(addr_sds);
-    if(node_entry == NULL)
-    {
-        ip_port = sdssplitlen(addr, strlen(addr), 
-            IP_PORT_SEPARATOR, strlen(IP_PORT_SEPARATOR), &ip_port_count);
-        if(ip_port == NULL || ip_port_count != 2 || 
-            sdslen(ip_port[0]) <= 0 || sdslen(ip_port[1]) <= 0)
-        {
-            if(ip_port != NULL)
-            {
-                sdsfreesplitres(ip_port, ip_port_count);
-            }
-            __redisClusterSetError(cc,REDIS_ERR_OTHER,"server address is error(correct is like: 127.0.0.1:1234)");
+    if(node_entry == NULL) {
+
+        char *p;
+        if ((p = strrchr(addr, IP_PORT_SEPARATOR)) == NULL) {
+            __redisClusterSetError(cc, REDIS_ERR_OTHER, "server address is incorrect, port separator missing.");
+            return REDIS_ERR;
+        }
+        // p includes separator
+
+        if (p-addr <= 0) { /* length until separator */
+            __redisClusterSetError(cc, REDIS_ERR_OTHER, "server address is incorrect, address part missing.");
+            return REDIS_ERR;
+        }
+        ip = sdsnewlen(addr, p-addr);
+
+        p++; // remove separator character
+
+        if (strlen(p) <= 0) {
+            __redisClusterSetError(cc, REDIS_ERR_OTHER, "server address is incorrect, port part missing.");
             return REDIS_ERR;
         }
 
-        ip = ip_port[0];
-        port = hi_atoi(ip_port[1], sdslen(ip_port[1]));
-
-        if(port <= 0)
-        {
-            sdsfreesplitres(ip_port, ip_port_count);
-            __redisClusterSetError(cc,REDIS_ERR_OTHER,"server port is error");
+        port = hi_atoi(p, strlen(p));
+        if(port <= 0) {
+            __redisClusterSetError(cc, REDIS_ERR_OTHER, "server port is incorrect");
             return REDIS_ERR;
         }
 
-        sdsfree(ip_port[1]);
-        free(ip_port);
-        ip_port = NULL;
-    
         node = hi_alloc(sizeof(cluster_node));
-        if(node == NULL)
-        {
+        if(node == NULL) {
             sdsfree(ip);
-            __redisClusterSetError(cc,REDIS_ERR_OTHER,"alloc cluster node error");
+            __redisClusterSetError(cc, REDIS_ERR_OTHER, "alloc cluster node error");
             return REDIS_ERR;
         }
 
         cluster_node_init(node);
 
         node->addr = sdsnew(addr);
-        if(node->addr == NULL)
-        {
+        if(node->addr == NULL) {
             sdsfree(ip);
             hi_free(node);
-            __redisClusterSetError(cc,REDIS_ERR_OTHER,"new node address error");
+            __redisClusterSetError(cc, REDIS_ERR_OTHER, "new node address error");
             return REDIS_ERR;
         }
 
@@ -1880,7 +1857,7 @@ int redisClusterSetOptionAddNode(redisClusterContext *cc, const char *addr)
 
         dictAdd(cc->nodes, sdsnewlen(node->addr, sdslen(node->addr)), node);
     }
-    
+
     return REDIS_OK;
 }
 
