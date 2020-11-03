@@ -3860,6 +3860,15 @@ redisAsyncContext * actx_get_by_node(redisClusterAsyncContext *acc,
         return NULL;
     }
 
+#ifdef SSL_SUPPORT
+    if(acc->cc->ssl) {
+        if(redisInitiateSSLWithContext(&ac->c, acc->cc->ssl) != REDIS_OK) {
+            __redisClusterAsyncSetError(acc, ac->c.err, ac->c.errstr);
+            return NULL;
+        }
+    }
+#endif
+
     if(acc->adapter)
     {
         acc->attach_fn(ac, acc->adapter);
@@ -3931,6 +3940,26 @@ static redisAsyncContext *actx_get_after_update_route_by_slot(
     }
 
     return ac;
+}
+
+redisClusterAsyncContext *redisClusterAsyncContextInit() {
+    redisClusterContext *cc;
+    redisClusterAsyncContext *acc;
+
+    cc = redisClusterContextInit();
+    if(cc == NULL) {
+        return NULL;
+    }
+
+    cc->flags &= ~REDIS_BLOCK;
+
+    acc = redisClusterAsyncInitialize(cc);
+    if(acc == NULL) {
+        redisClusterFree(cc);
+        return NULL;
+    }
+
+    return acc;
 }
 
 redisClusterAsyncContext *redisClusterAsyncConnect(const char *addrs, int flags) {

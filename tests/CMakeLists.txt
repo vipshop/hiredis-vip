@@ -33,3 +33,9 @@ add_executable(example_tls main_tls.c)
 target_link_libraries(example_tls hiredis_vip hiredis hiredis_ssl hiredis_ssl)
 add_dependencies(example_tls generate_tls_configs)
 add_test(NAME example_tls COMMAND "$<TARGET_FILE:example_tls>")
+
+# Executable: async tls
+add_executable(example_async_tls main_async_tls.c)
+target_link_libraries(example_async_tls hiredis_vip hiredis hiredis_ssl ${EVENT_LIBRARY})
+add_dependencies(example_async_tls generate_tls_configs)
+add_test(NAME example_async_tls COMMAND "$<TARGET_FILE:example_async_tls>")

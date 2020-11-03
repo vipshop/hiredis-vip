@@ -186,6 +186,7 @@ typedef struct redisClusterAsyncContext {
 
 } redisClusterAsyncContext;
 
+redisClusterAsyncContext *redisClusterAsyncContextInit(void);
 redisClusterAsyncContext *redisClusterAsyncConnect(const char *addrs, int flags);
 int redisClusterAsyncSetConnectCallback(redisClusterAsyncContext *acc, redisConnectCallback *fn);
 int redisClusterAsyncSetDisconnectCallback(redisClusterAsyncContext *acc, redisDisconnectCallback *fn);
