@@ -10,10 +10,10 @@
 #include <hiredis/hiredis_ssl.h>
 #endif
 
-#define HIREDIS_VIP_MAJOR 0
-#define HIREDIS_VIP_MINOR 4
-#define HIREDIS_VIP_PATCH 0
-#define HIREDIS_VIP_SONAME 0.4
+#define HIREDIS_CLUSTER_MAJOR 0
+#define HIREDIS_CLUSTER_MINOR 5
+#define HIREDIS_CLUSTER_PATCH 0
+#define HIREDIS_CLUSTER_SONAME 0.5
 
 #define REDIS_CLUSTER_SLOTS 16384
 

@@ -4,7 +4,6 @@
 
 #include "hircluster.h"
 #include "adapters/libevent.h"
-#include "hiredis_ssl.h"
 
 void getCallback(redisClusterAsyncContext *cc, void *r, void *privdata) {
     redisReply *reply = (redisReply*)r;

@@ -28,8 +28,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __HIREDIS_VIP_LIBEVENT_H__
-#define __HIREDIS_VIP_LIBEVENT_H__
+#ifndef __HIREDIS_CLUSTER_LIBEVENT_H__
+#define __HIREDIS_CLUSTER_LIBEVENT_H__
 
 #include "../hircluster.h"
 #include <hiredis/adapters/libevent.h>

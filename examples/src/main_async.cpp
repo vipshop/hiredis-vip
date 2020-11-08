@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "hiredis_vip/hircluster.h"
-#include "hiredis_vip/adapters/libevent.h"
+#include "hiredis_cluster/hircluster.h"
+#include "hiredis_cluster/adapters/libevent.h"
 
 void getCallback(redisClusterAsyncContext *cc, void *r, void *privdata) {
     redisReply *reply = (redisReply*)r;

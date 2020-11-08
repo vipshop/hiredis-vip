@@ -1,29 +1,31 @@
 cmake_minimum_required(VERSION 3.14)
+include(GNUInstallDirs)
+project(hiredis-cluster)
 
 option(DOWNLOAD_HIREDIS "Download the dependency hiredis from GitHub" ON)
 option(ENABLE_SSL       "Enable SSL/TLS support" ON)
 option(DISABLE_TESTS    "Disable compilation of test" OFF)
 
-MACRO(getVersionBit name)
-  SET(VERSION_REGEX "^#define ${name} (.+)$")
-  FILE(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/hircluster.h"
+macro(getVersionBit name)
+  set(VERSION_REGEX "^#define ${name} (.+)$")
+  file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/hircluster.h"
     VERSION_BIT REGEX ${VERSION_REGEX})
-  STRING(REGEX REPLACE ${VERSION_REGEX} "\\1" ${name} "${VERSION_BIT}")
-ENDMACRO(getVersionBit)
+  string(REGEX REPLACE ${VERSION_REGEX} "\\1" ${name} "${VERSION_BIT}")
+endmacro(getVersionBit)
 
-# Get version information from src-code
-getVersionBit(HIREDIS_VIP_MAJOR)
-getVersionBit(HIREDIS_VIP_MINOR)
-getVersionBit(HIREDIS_VIP_PATCH)
-getVersionBit(HIREDIS_VIP_SONAME)
-SET(VERSION "${HIREDIS_VIP_MAJOR}.${HIREDIS_VIP_MINOR}.${HIREDIS_VIP_PATCH}")
-MESSAGE("Detected version: ${VERSION}")
+# Get version information from src
+getVersionBit(HIREDIS_CLUSTER_MAJOR)
+getVersionBit(HIREDIS_CLUSTER_MINOR)
+getVersionBit(HIREDIS_CLUSTER_PATCH)
+getVersionBit(HIREDIS_CLUSTER_SONAME)
+set(VERSION "${HIREDIS_CLUSTER_MAJOR}.${HIREDIS_CLUSTER_MINOR}.${HIREDIS_CLUSTER_PATCH}")
+message("Detected version: ${VERSION}")
 
-project(hiredis_vip
+project(hiredis-cluster
   VERSION "${VERSION}"
   LANGUAGES C)
 
-SET(hiredis_vip_SOURCES
+SET(hiredis_cluster_sources
     adlist.c
     command.c
     crc16.c
@@ -31,27 +33,27 @@ SET(hiredis_vip_SOURCES
     hircluster.c
     hiutil.c)
 
-IF(WIN32 OR MINGW)
-    ADD_COMPILE_DEFINITIONS(_CRT_SECURE_NO_WARNINGS WIN32_LEAN_AND_MEAN)
-    SET(hiredis_vip_SOURCES
-        ${hiredis_vip_SOURCES}
-        hiredis_vip.def)
-ENDIF()
+if(WIN32 OR MINGW)
+    add_compile_definitions(_CRT_SECURE_NO_WARNINGS WIN32_LEAN_AND_MEAN)
+    set(hiredis_cluster_sources
+        ${hiredis_cluster_sources}
+        hiredis_cluster.def)
+endif()
 
-add_library(hiredis_vip
+add_library(hiredis_cluster
   SHARED
-  ${hiredis_vip_SOURCES})
+  ${hiredis_cluster_sources})
 
 if(MSVC)
   # MS Visual: Suppress warnings
-  target_compile_options(hiredis_vip PRIVATE "/wd 4267" "/wd 4244")
+  target_compile_options(hiredis_cluster PRIVATE "/wd 4267" "/wd 4244")
 else()
-  target_compile_options(hiredis_vip PRIVATE -Wall -Wextra -pedantic -Werror)
+  target_compile_options(hiredis_cluster PRIVATE -Wall -Wextra -pedantic -Werror)
 endif()
 
-SET_TARGET_PROPERTIES(hiredis_vip
+set_target_properties(hiredis_cluster
     PROPERTIES
-    VERSION "${HIREDIS_VIP_SONAME}")
+    VERSION "${HIREDIS_CLUSTER_SONAME}")
 
 if(DOWNLOAD_HIREDIS)
   message("Downloading dependency 'hiredis'..")
@@ -76,15 +78,15 @@ if(DOWNLOAD_HIREDIS)
   file(WRITE "${stub_dir}/hiredis-config.cmake" "")
   set(hiredis_DIR ${stub_dir})
   # Set variables normally got from hiredis-config.cmake
-  SET(hiredis_LIBRARIES hiredis::hiredis)
-  SET(hiredis_INCLUDE_DIRS "${CMAKE_CURRENT_BINARY_DIR}/_deps")
+  set(hiredis_LIBRARIES hiredis::hiredis)
+  set(hiredis_INCLUDE_DIRS "${CMAKE_CURRENT_BINARY_DIR}/_deps")
 
   if(ENABLE_SSL)
     file(WRITE "${stub_dir}/hiredis_ssl-config.cmake" "")
     set(hiredis_ssl_DIR ${stub_dir})
     # Set variables normally got from hiredis_ssl-config.cmake
-    SET(hiredis_ssl_LIBRARIES hiredis::hiredis_ssl)
-    SET(hiredis_INCLUDE_DIRS "${CMAKE_CURRENT_BINARY_DIR}/_deps")
+    set(hiredis_ssl_LIBRARIES hiredis::hiredis_ssl)
+    set(hiredis_INCLUDE_DIRS "${CMAKE_CURRENT_BINARY_DIR}/_deps")
   endif()
 
 else()
@@ -98,13 +100,13 @@ if(ENABLE_SSL)
   add_definitions(-DSSL_SUPPORT)
 endif()
 
-target_include_directories(hiredis_vip PUBLIC
+target_include_directories(hiredis_cluster PUBLIC
   $<BUILD_INTERFACE:${hiredis_INCLUDE_DIRS}>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
 
-IF(WIN32 OR MINGW)
-    TARGET_LINK_LIBRARIES(hiredis_vip PRIVATE ws2_32 hiredis::hiredis)
-ENDIF()
+if(WIN32 OR MINGW)
+    TARGET_LINK_LIBRARIES(hiredis_cluster PRIVATE ws2_32 hiredis::hiredis)
+endif()
 
 if (NOT DISABLE_TESTS)
   include(CTest)
@@ -114,38 +116,35 @@ if (NOT DISABLE_TESTS)
   endif()
 endif()
 
-# Get CMAKE_INSTALL_ variables
-include(GNUInstallDirs)
+configure_file(hiredis_cluster.pc.in hiredis_cluster.pc @ONLY)
 
-CONFIGURE_FILE(hiredis_vip.pc.in hiredis_vip.pc @ONLY)
+install(TARGETS hiredis_cluster
+        EXPORT hiredis_cluster-targets)
 
-INSTALL(TARGETS hiredis_vip
-        EXPORT hiredis_vip-targets)
+install(FILES hircluster.h adlist.h hiarray.h
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/hiredis_cluster)
 
-INSTALL(FILES hircluster.h adlist.h hiarray.h
-    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/hiredis_vip)
+install(DIRECTORY adapters
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/hiredis_cluster)
 
-INSTALL(DIRECTORY adapters
-    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/hiredis_vip)
-
-INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/hiredis_vip.pc
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/hiredis_cluster.pc
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
 
-export(EXPORT hiredis_vip-targets
-       FILE ${CMAKE_CURRENT_BINARY_DIR}/hiredis_vip-targets.cmake
-       NAMESPACE hiredis_vip::)
+export(EXPORT hiredis_cluster-targets
+       FILE ${CMAKE_CURRENT_BINARY_DIR}/hiredis_cluster-targets.cmake
+       NAMESPACE hiredis_cluster::)
 
-SET(CMAKE_CONF_INSTALL_DIR share/hiredis_vip)
-SET(INCLUDE_INSTALL_DIR include)
+set(CMAKE_CONF_INSTALL_DIR share/hiredis_cluster)
+set(INCLUDE_INSTALL_DIR include)
 include(CMakePackageConfigHelpers)
-configure_package_config_file(hiredis_vip-config.cmake.in ${CMAKE_CURRENT_BINARY_DIR}/hiredis_vip-config.cmake
+configure_package_config_file(hiredis_cluster-config.cmake.in ${CMAKE_CURRENT_BINARY_DIR}/hiredis_cluster-config.cmake
                               INSTALL_DESTINATION ${CMAKE_CONF_INSTALL_DIR}
                               PATH_VARS INCLUDE_INSTALL_DIR)
 
-INSTALL(EXPORT hiredis_vip-targets
-        FILE hiredis_vip-targets.cmake
-        NAMESPACE hiredis_vip::
+install(EXPORT hiredis_cluster-targets
+        FILE hiredis_cluster-targets.cmake
+        NAMESPACE hiredis_cluster::
         DESTINATION ${CMAKE_CONF_INSTALL_DIR})
 
-INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/hiredis_vip-config.cmake
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/hiredis_cluster-config.cmake
         DESTINATION ${CMAKE_CONF_INSTALL_DIR})

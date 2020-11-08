@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "hiredis_vip/hircluster.h"
+#include "hiredis_cluster/hircluster.h"
 
 int main(int argc, char **argv)
 {

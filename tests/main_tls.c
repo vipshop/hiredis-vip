@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "hircluster.h"
-#include "hiredis_ssl.h"   // REMOVE ??
 
 int main(int argc, char **argv)
 {
