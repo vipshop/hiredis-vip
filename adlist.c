@@ -28,18 +28,16 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-
-#include <stdlib.h>
 #include "adlist.h"
 #include "hiutil.h"
+#include <stdlib.h>
 
 /* Create a new list. The created list can be freed with
  * AlFreeList(), but private value of every node need to be freed
  * by the user before to call AlFreeList().
  *
  * On error, NULL is returned. Otherwise the pointer to the new list. */
-hilist *listCreate(void)
-{
+hilist *listCreate(void) {
     struct hilist *list;
 
     if ((list = hi_alloc(sizeof(*list))) == NULL)
@@ -55,16 +53,16 @@ hilist *listCreate(void)
 /* Free the whole list.
  *
  * This function can't fail. */
-void listRelease(hilist *list)
-{
+void listRelease(hilist *list) {
     unsigned long len;
     listNode *current, *next;
 
     current = list->head;
     len = list->len;
-    while(len--) {
+    while (len--) {
         next = current->next;
-        if (list->free) list->free(current->value);
+        if (list->free)
+            list->free(current->value);
         hi_free(current);
         current = next;
     }
@@ -77,8 +75,7 @@ void listRelease(hilist *list)
  * On error, NULL is returned and no operation is performed (i.e. the
  * list remains unaltered).
  * On success the 'list' pointer you pass to the function is returned. */
-hilist *listAddNodeHead(hilist *list, void *value)
-{
+hilist *listAddNodeHead(hilist *list, void *value) {
     listNode *node;
 
     if ((node = hi_alloc(sizeof(*node))) == NULL)
@@ -103,8 +100,7 @@ hilist *listAddNodeHead(hilist *list, void *value)
  * On error, NULL is returned and no operation is performed (i.e. the
  * list remains unaltered).
  * On success the 'list' pointer you pass to the function is returned. */
-hilist *listAddNodeTail(hilist *list, void *value)
-{
+hilist *listAddNodeTail(hilist *list, void *value) {
     listNode *node;
 
     if ((node = hi_alloc(sizeof(*node))) == NULL)
@@ -123,7 +119,8 @@ hilist *listAddNodeTail(hilist *list, void *value)
     return list;
 }
 
-hilist *listInsertNode(hilist *list, listNode *old_node, void *value, int after) {
+hilist *listInsertNode(hilist *list, listNode *old_node, void *value,
+                       int after) {
     listNode *node;
 
     if ((node = hi_alloc(sizeof(*node))) == NULL)
@@ -156,8 +153,7 @@ hilist *listInsertNode(hilist *list, listNode *old_node, void *value, int after)
  * It's up to the caller to free the private value of the node.
  *
  * This function can't fail. */
-void listDelNode(hilist *list, listNode *node)
-{
+void listDelNode(hilist *list, listNode *node) {
     if (node->prev)
         node->prev->next = node->next;
     else
@@ -166,7 +162,8 @@ void listDelNode(hilist *list, listNode *node)
         node->next->prev = node->prev;
     else
         list->tail = node->prev;
-    if (list->free) list->free(node->value);
+    if (list->free)
+        list->free(node->value);
     hi_free(node);
     list->len--;
 }
@@ -175,11 +172,11 @@ void listDelNode(hilist *list, listNode *node)
  * call to listNext() will return the next element of the list.
  *
  * This function can't fail. */
-listIter *listGetIterator(hilist *list, int direction)
-{
+listIter *listGetIterator(hilist *list, int direction) {
     listIter *iter;
 
-    if ((iter = hi_alloc(sizeof(*iter))) == NULL) return NULL;
+    if ((iter = hi_alloc(sizeof(*iter))) == NULL)
+        return NULL;
     if (direction == AL_START_HEAD)
         iter->next = list->head;
     else
@@ -189,9 +186,7 @@ listIter *listGetIterator(hilist *list, int direction)
 }
 
 /* Release the iterator memory */
-void listReleaseIterator(listIter *iter) {
-    hi_free(iter);
-}
+void listReleaseIterator(listIter *iter) { hi_free(iter); }
 
 /* Create an iterator in the list private iterator structure */
 void listRewind(hilist *list, listIter *li) {
@@ -218,8 +213,7 @@ void listRewindTail(hilist *list, listIter *li) {
  * }
  *
  * */
-listNode *listNext(listIter *iter)
-{
+listNode *listNext(listIter *iter) {
     listNode *current = iter->next;
 
     if (current != NULL) {
@@ -239,8 +233,7 @@ listNode *listNext(listIter *iter)
  * the original node is used as value of the copied node.
  *
  * The original list both on success or error is never modified. */
-hilist *listDup(hilist *orig)
-{
+hilist *listDup(hilist *orig) {
     hilist *copy;
     listIter *iter;
     listNode *node;
@@ -251,7 +244,7 @@ hilist *listDup(hilist *orig)
     copy->free = orig->free;
     copy->match = orig->match;
     iter = listGetIterator(orig, AL_START_HEAD);
-    while((node = listNext(iter)) != NULL) {
+    while ((node = listNext(iter)) != NULL) {
         void *value;
 
         if (copy->dup) {
@@ -282,13 +275,12 @@ hilist *listDup(hilist *orig)
  * On success the first matching node pointer is returned
  * (search starts from head). If no matching node exists
  * NULL is returned. */
-listNode *listSearchKey(hilist *list, void *key)
-{
+listNode *listSearchKey(hilist *list, void *key) {
     listIter *iter;
     listNode *node;
 
     iter = listGetIterator(list, AL_START_HEAD);
-    while((node = listNext(iter)) != NULL) {
+    while ((node = listNext(iter)) != NULL) {
         if (list->match) {
             if (list->match(node->value, key)) {
                 listReleaseIterator(iter);
@@ -314,12 +306,14 @@ listNode *listIndex(hilist *list, long index) {
     listNode *n;
 
     if (index < 0) {
-        index = (-index)-1;
+        index = (-index) - 1;
         n = list->tail;
-        while(index-- && n) n = n->prev;
+        while (index-- && n)
+            n = n->prev;
     } else {
         n = list->head;
-        while(index-- && n) n = n->next;
+        while (index-- && n)
+            n = n->next;
     }
     return n;
 }
@@ -328,7 +322,8 @@ listNode *listIndex(hilist *list, long index) {
 void listRotate(hilist *list) {
     listNode *tail = list->tail;
 
-    if (listLength(list) <= 1) return;
+    if (listLength(list) <= 1)
+        return;
 
     /* Detach current tail */
     list->tail = tail->prev;

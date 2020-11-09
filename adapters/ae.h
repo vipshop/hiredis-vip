@@ -34,15 +34,14 @@
 #include "../hircluster.h"
 #include <hiredis/adapters/ae.h>
 
-static int redisAeAttach_link(redisAsyncContext *ac, void *base)
-{
+static int redisAeAttach_link(redisAsyncContext *ac, void *base) {
     return redisAeAttach((aeEventLoop *)base, ac);
 }
 
-static int redisClusterAeAttach(aeEventLoop *loop, redisClusterAsyncContext *acc) {
+static int redisClusterAeAttach(aeEventLoop *loop,
+                                redisClusterAsyncContext *acc) {
 
-    if(acc == NULL || loop == NULL)
-    {
+    if (acc == NULL || loop == NULL) {
         return REDIS_ERR;
     }
 

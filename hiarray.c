@@ -1,11 +1,9 @@
 #include <stdlib.h>
 
-#include "hiutil.h"
 #include "hiarray.h"
+#include "hiutil.h"
 
-struct hiarray *
-hiarray_create(uint32_t n, size_t size)
-{
+struct hiarray *hiarray_create(uint32_t n, size_t size) {
     struct hiarray *a;
 
     ASSERT(n != 0 && size != 0);
@@ -28,16 +26,12 @@ hiarray_create(uint32_t n, size_t size)
     return a;
 }
 
-void
-hiarray_destroy(struct hiarray *a)
-{
+void hiarray_destroy(struct hiarray *a) {
     hiarray_deinit(a);
     hi_free(a);
 }
 
-int
-hiarray_init(struct hiarray *a, uint32_t n, size_t size)
-{
+int hiarray_init(struct hiarray *a, uint32_t n, size_t size) {
     ASSERT(n != 0 && size != 0);
 
     a->elem = hi_alloc(n * size);
@@ -52,9 +46,7 @@ hiarray_init(struct hiarray *a, uint32_t n, size_t size)
     return HI_OK;
 }
 
-void
-hiarray_deinit(struct hiarray *a)
-{
+void hiarray_deinit(struct hiarray *a) {
     ASSERT(a->nelem == 0);
 
     if (a->elem != NULL) {
@@ -62,9 +54,7 @@ hiarray_deinit(struct hiarray *a)
     }
 }
 
-uint32_t
-hiarray_idx(struct hiarray *a, void *elem)
-{
+uint32_t hiarray_idx(struct hiarray *a, void *elem) {
     uint8_t *p, *q;
     uint32_t off, idx;
 
@@ -81,9 +71,7 @@ hiarray_idx(struct hiarray *a, void *elem)
     return idx;
 }
 
-void *
-hiarray_push(struct hiarray *a)
-{
+void *hiarray_push(struct hiarray *a) {
     void *elem, *new;
     size_t size;
 
@@ -106,9 +94,7 @@ hiarray_push(struct hiarray *a)
     return elem;
 }
 
-void *
-hiarray_pop(struct hiarray *a)
-{
+void *hiarray_pop(struct hiarray *a) {
     void *elem;
 
     ASSERT(a->nelem != 0);
@@ -119,9 +105,7 @@ hiarray_pop(struct hiarray *a)
     return elem;
 }
 
-void *
-hiarray_get(struct hiarray *a, uint32_t idx)
-{
+void *hiarray_get(struct hiarray *a, uint32_t idx) {
     void *elem;
 
     ASSERT(a->nelem != 0);
@@ -132,17 +116,13 @@ hiarray_get(struct hiarray *a, uint32_t idx)
     return elem;
 }
 
-void *
-hiarray_top(struct hiarray *a)
-{
+void *hiarray_top(struct hiarray *a) {
     ASSERT(a->nelem != 0);
 
     return hiarray_get(a, a->nelem - 1);
 }
 
-void
-hiarray_swap(struct hiarray *a, struct hiarray *b)
-{
+void hiarray_swap(struct hiarray *a, struct hiarray *b) {
     struct hiarray tmp;
 
     tmp = *a;
@@ -154,9 +134,7 @@ hiarray_swap(struct hiarray *a, struct hiarray *b)
  * Sort nelem elements of the array in ascending order based on the
  * compare comparator.
  */
-void
-hiarray_sort(struct hiarray *a, hiarray_compare_t compare)
-{
+void hiarray_sort(struct hiarray *a, hiarray_compare_t compare) {
     ASSERT(a->nelem != 0);
 
     qsort(a->elem, a->nelem, a->size, compare);
@@ -166,9 +144,7 @@ hiarray_sort(struct hiarray *a, hiarray_compare_t compare)
  * Calls the func once for each element in the array as long as func returns
  * success. On failure short-circuits and returns the error status.
  */
-int
-hiarray_each(struct hiarray *a, hiarray_each_t func, void *data)
-{
+int hiarray_each(struct hiarray *a, hiarray_each_t func, void *data) {
     uint32_t i, nelem;
 
     ASSERT(array_n(a) != 0);

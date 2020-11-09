@@ -1,33 +1,33 @@
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <assert.h>
 
-#include "hircluster.h"
 #include "adapters/libevent.h"
+#include "hircluster.h"
 
 void getCallback(redisClusterAsyncContext *cc, void *r, void *privdata) {
-    redisReply *reply = (redisReply*)r;
+    redisReply *reply = (redisReply *)r;
     if (reply == NULL) {
         if (cc->errstr) {
             printf("errstr: %s\n", cc->errstr);
         }
         return;
     }
-    printf("privdata: %s reply: %s\n", (char*)privdata, reply->str);
+    printf("privdata: %s reply: %s\n", (char *)privdata, reply->str);
 
     /* Disconnect after receiving the reply to GET */
     redisClusterAsyncDisconnect(cc);
 }
 
 void setCallback(redisClusterAsyncContext *cc, void *r, void *privdata) {
-    redisReply *reply = (redisReply*)r;
+    redisReply *reply = (redisReply *)r;
     if (reply == NULL) {
         if (cc->errstr) {
             printf("errstr: %s\n", cc->errstr);
         }
         return;
     }
-    printf("privdata: %s reply: %s\n", (char*)privdata, reply->str);
+    printf("privdata: %s reply: %s\n", (char *)privdata, reply->str);
 }
 
 void connectCallback(const redisAsyncContext *ac, int status) {
@@ -47,8 +47,7 @@ void disconnectCallback(const redisAsyncContext *ac, int status) {
     printf("Disconnected from %s:%d\n", ac->c.tcp.host, ac->c.tcp.port);
 }
 
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
     UNUSED(argc);
     UNUSED(argv);
 
@@ -56,7 +55,8 @@ int main(int argc, char **argv)
     redisSSLContextError ssl_error;
 
     redisInitOpenSSL();
-    ssl = redisCreateSSLContext("ca.crt", NULL, "client.crt", "client.key", NULL, &ssl_error);
+    ssl = redisCreateSSLContext("ca.crt", NULL, "client.crt", "client.key",
+                                NULL, &ssl_error);
     if (!ssl) {
         printf("SSL Context error: %s\n", redisSSLContextGetError(ssl_error));
         exit(1);
@@ -80,15 +80,15 @@ int main(int argc, char **argv)
     redisClusterLibeventAttach(acc, base);
 
     int status;
-    status = redisClusterAsyncCommand(acc, setCallback, (char*)"THE_ID", "SET %s %s", "key", "value");
-    if(status != REDIS_OK)
-    {
+    status = redisClusterAsyncCommand(acc, setCallback, (char *)"THE_ID",
+                                      "SET %s %s", "key", "value");
+    if (status != REDIS_OK) {
         printf("error: err=%d errstr=%s\n", acc->err, acc->errstr);
     }
 
-    status = redisClusterAsyncCommand(acc, getCallback, (char*)"THE_ID", "GET %s", "key");
-    if(status != REDIS_OK)
-    {
+    status = redisClusterAsyncCommand(acc, getCallback, (char *)"THE_ID",
+                                      "GET %s", "key");
+    if (status != REDIS_OK) {
         printf("error: err=%d errstr=%s\n", acc->err, acc->errstr);
     }
 

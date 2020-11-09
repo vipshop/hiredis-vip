@@ -61,9 +61,9 @@ typedef struct hilist {
 #define listNextNode(n) ((n)->next)
 #define listNodeValue(n) ((n)->value)
 
-#define listSetDupMethod(l,m) ((l)->dup = (m))
-#define listSetFreeMethod(l,m) ((l)->free = (m))
-#define listSetMatchMethod(l,m) ((l)->match = (m))
+#define listSetDupMethod(l, m) ((l)->dup = (m))
+#define listSetFreeMethod(l, m) ((l)->free = (m))
+#define listSetMatchMethod(l, m) ((l)->match = (m))
 
 #define listGetDupMethod(l) ((l)->dup)
 #define listGetFree(l) ((l)->free)
@@ -74,7 +74,8 @@ hilist *listCreate(void);
 void listRelease(hilist *list);
 hilist *listAddNodeHead(hilist *list, void *value);
 hilist *listAddNodeTail(hilist *list, void *value);
-hilist *listInsertNode(hilist *list, listNode *old_node, void *value, int after);
+hilist *listInsertNode(hilist *list, listNode *old_node, void *value,
+                       int after);
 void listDelNode(hilist *list, listNode *node);
 listIter *listGetIterator(hilist *list, int direction);
 listNode *listNext(listIter *iter);

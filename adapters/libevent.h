@@ -38,10 +38,10 @@ static int redisLibeventAttach_link(redisAsyncContext *ac, void *base) {
     return redisLibeventAttach(ac, (struct event_base *)base);
 }
 
-static int redisClusterLibeventAttach(redisClusterAsyncContext *acc, struct event_base *base) {
+static int redisClusterLibeventAttach(redisClusterAsyncContext *acc,
+                                      struct event_base *base) {
 
-    if(acc == NULL || base == NULL)
-    {
+    if (acc == NULL || base == NULL) {
         return REDIS_ERR;
     }
 

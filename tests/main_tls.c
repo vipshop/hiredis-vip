@@ -1,9 +1,8 @@
+#include "hircluster.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include "hircluster.h"
 
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
     UNUSED(argc);
     UNUSED(argv);
 
@@ -11,13 +10,14 @@ int main(int argc, char **argv)
     redisSSLContextError ssl_error;
 
     redisInitOpenSSL();
-    ssl = redisCreateSSLContext("ca.crt", NULL, "client.crt", "client.key", NULL, &ssl_error);
+    ssl = redisCreateSSLContext("ca.crt", NULL, "client.crt", "client.key",
+                                NULL, &ssl_error);
     if (!ssl) {
         printf("SSL Context error: %s\n", redisSSLContextGetError(ssl_error));
         exit(1);
     }
 
-    struct timeval timeout = { 1, 500000 }; // 1.5s
+    struct timeval timeout = {1, 500000}; // 1.5s
 
     redisClusterContext *cc = redisClusterContextInit();
     redisClusterSetOptionAddNodes(cc, "127.0.0.1:31001");
@@ -32,18 +32,17 @@ int main(int argc, char **argv)
         exit(-1);
     }
 
-    redisReply *reply = (redisReply*)redisClusterCommand(cc, "SET %s %s", "key", "value");
-    if (!reply)
-    {
+    redisReply *reply =
+        (redisReply *)redisClusterCommand(cc, "SET %s %s", "key", "value");
+    if (!reply) {
         printf("Reply missing: %s\n", cc->errstr);
         exit(-1);
     }
     printf("SET: %s\n", reply->str);
     freeReplyObject(reply);
 
-    redisReply *reply2 = (redisReply*)redisClusterCommand(cc, "GET %s", "key");
-    if (!reply2)
-    {
+    redisReply *reply2 = (redisReply *)redisClusterCommand(cc, "GET %s", "key");
+    if (!reply2) {
         printf("Reply missing: %s\n", cc->errstr);
         exit(-1);
     }

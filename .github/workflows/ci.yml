@@ -1,6 +1,6 @@
 name: CI
 
-on: [push]
+on: [push, pull_request]
 
 env:
   # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
@@ -19,6 +19,9 @@ jobs:
       run: sudo apt install libevent-dev
 
     - uses: actions/checkout@v2
+
+    - name: Run clang-format style check (.c and .h)
+      uses: jidicula/clang-format-action@master
 
     - name: Create out-of-source build folder
       run: cmake -E make_directory ${{runner.workspace}}/build

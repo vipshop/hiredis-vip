@@ -33,10 +33,10 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <stdlib.h>
+#include "dict.h"
 #include <assert.h>
 #include <limits.h>
-#include "dict.h"
+#include <stdlib.h>
 
 /* -------------------------- private prototypes ---------------------------- */
 
@@ -71,7 +71,7 @@ static void _dictReset(dict *ht) {
 /* Create a new hash table */
 static dict *dictCreate(dictType *type, void *privDataPtr) {
     dict *ht = malloc(sizeof(*ht));
-    _dictInit(ht,type,privDataPtr);
+    _dictInit(ht, type, privDataPtr);
     return ht;
 }
 
@@ -95,8 +95,8 @@ static int dictExpand(dict *ht, unsigned long size) {
 
     _dictInit(&n, ht->type, ht->privdata);
     n.size = realsize;
-    n.sizemask = realsize-1;
-    n.table = calloc(realsize,sizeof(dictEntry*));
+    n.sizemask = realsize - 1;
+    n.table = calloc(realsize, sizeof(dictEntry *));
 
     /* Copy all the elements from the old to the new table:
      * note that if the old hash table is empty ht->size is zero,
@@ -105,11 +105,12 @@ static int dictExpand(dict *ht, unsigned long size) {
     for (i = 0; i < ht->size && ht->used > 0; i++) {
         dictEntry *he, *nextHe;
 
-        if (ht->table[i] == NULL) continue;
+        if (ht->table[i] == NULL)
+            continue;
 
         /* For each hash entry on this slot... */
         he = ht->table[i];
-        while(he) {
+        while (he) {
             unsigned int h;
 
             nextHe = he->next;
@@ -160,8 +161,9 @@ static int _dictClear(dict *ht) {
     for (i = 0; i < ht->size && ht->used > 0; i++) {
         dictEntry *he, *nextHe;
 
-        if ((he = ht->table[i]) == NULL) continue;
-        while(he) {
+        if ((he = ht->table[i]) == NULL)
+            continue;
+        while (he) {
             nextHe = he->next;
             dictFreeEntryKey(ht, he);
             dictFreeEntryVal(ht, he);
@@ -187,10 +189,11 @@ static dictEntry *dictFind(dict *ht, const void *key) {
     dictEntry *he;
     unsigned int h;
 
-    if (ht->size == 0) return NULL;
+    if (ht->size == 0)
+        return NULL;
     h = dictHashKey(ht, key) & ht->sizemask;
     he = ht->table[h];
-    while(he) {
+    while (he) {
         if (dictCompareHashKeys(ht, key, he->key))
             return he;
         he = he->next;
@@ -212,8 +215,8 @@ static dictEntry *dictNext(dictIterator *iter) {
     while (1) {
         if (iter->entry == NULL) {
             iter->index++;
-            if (iter->index >=
-                    (signed)iter->ht->size) break;
+            if (iter->index >= (signed)iter->ht->size)
+                break;
             iter->entry = iter->ht->table[iter->index];
         } else {
             iter->entry = iter->nextEntry;
@@ -228,9 +231,7 @@ static dictEntry *dictNext(dictIterator *iter) {
     return NULL;
 }
 
-static void dictReleaseIterator(dictIterator *iter) {
-    free(iter);
-}
+static void dictReleaseIterator(dictIterator *iter) { free(iter); }
 
 /* ------------------------- private functions ------------------------------ */
 
@@ -241,7 +242,7 @@ static int _dictExpandIfNeeded(dict *ht) {
     if (ht->size == 0)
         return dictExpand(ht, DICT_HT_INITIAL_SIZE);
     if (ht->used == ht->size)
-        return dictExpand(ht, ht->size*2);
+        return dictExpand(ht, ht->size * 2);
     return DICT_OK;
 }
 
@@ -249,8 +250,9 @@ static int _dictExpandIfNeeded(dict *ht) {
 static unsigned long _dictNextPower(unsigned long size) {
     unsigned long i = DICT_HT_INITIAL_SIZE;
 
-    if (size >= LONG_MAX) return LONG_MAX;
-    while(1) {
+    if (size >= LONG_MAX)
+        return LONG_MAX;
+    while (1) {
         if (i >= size)
             return i;
         i *= 2;
@@ -271,11 +273,10 @@ static int _dictKeyIndex(dict *ht, const void *key) {
     h = dictHashKey(ht, key) & ht->sizemask;
     /* Search if this slot does not already contain the given key */
     he = ht->table[h];
-    while(he) {
+    while (he) {
         if (dictCompareHashKeys(ht, key, he->key))
             return -1;
         he = he->next;
     }
     return h;
 }
-

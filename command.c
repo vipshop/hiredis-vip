@@ -2,20 +2,16 @@
 #include <errno.h>
 
 #include "command.h"
-#include "hiutil.h"
 #include "hiarray.h"
+#include "hiutil.h"
 
-
-static uint64_t cmd_id = 0;          /* command id counter */
-
+static uint64_t cmd_id = 0; /* command id counter */
 
 /*
  * Return true, if the redis command take no key, otherwise
  * return false
  */
-static int
-redis_argz(struct cmd *r)
-{
+static int redis_argz(struct cmd *r) {
     switch (r->type) {
     case CMD_REQ_REDIS_PING:
     case CMD_REQ_REDIS_QUIT:
@@ -32,9 +28,7 @@ redis_argz(struct cmd *r)
  * Return true, if the redis command accepts no arguments, otherwise
  * return false
  */
-static int
-redis_arg0(struct cmd *r)
-{
+static int redis_arg0(struct cmd *r) {
     switch (r->type) {
     case CMD_REQ_REDIS_EXISTS:
     case CMD_REQ_REDIS_PERSIST:
@@ -78,9 +72,7 @@ redis_arg0(struct cmd *r)
  * Return true, if the redis command accepts exactly 1 argument, otherwise
  * return false
  */
-static int
-redis_arg1(struct cmd *r)
-{
+static int redis_arg1(struct cmd *r) {
     switch (r->type) {
     case CMD_REQ_REDIS_EXPIRE:
     case CMD_REQ_REDIS_EXPIREAT:
@@ -121,9 +113,7 @@ redis_arg1(struct cmd *r)
  * Return true, if the redis command accepts exactly 2 arguments, otherwise
  * return false
  */
-static int
-redis_arg2(struct cmd *r)
-{
+static int redis_arg2(struct cmd *r) {
     switch (r->type) {
     case CMD_REQ_REDIS_GETRANGE:
     case CMD_REQ_REDIS_PSETEX:
@@ -164,9 +154,7 @@ redis_arg2(struct cmd *r)
  * Return true, if the redis command accepts exactly 3 arguments, otherwise
  * return false
  */
-static int
-redis_arg3(struct cmd *r)
-{
+static int redis_arg3(struct cmd *r) {
     switch (r->type) {
     case CMD_REQ_REDIS_LINSERT:
         return 1;
@@ -182,9 +170,7 @@ redis_arg3(struct cmd *r)
  * Return true, if the redis command accepts 0 or more arguments, otherwise
  * return false
  */
-static int
-redis_argn(struct cmd *r)
-{
+static int redis_argn(struct cmd *r) {
     switch (r->type) {
     case CMD_REQ_REDIS_BITCOUNT:
 
@@ -234,9 +220,7 @@ redis_argn(struct cmd *r)
  * Return true, if the redis command is a vector command accepting one or
  * more keys, otherwise return false
  */
-static int
-redis_argx(struct cmd *r)
-{
+static int redis_argx(struct cmd *r) {
     switch (r->type) {
     case CMD_REQ_REDIS_MGET:
     case CMD_REQ_REDIS_DEL:
@@ -253,9 +237,7 @@ redis_argx(struct cmd *r)
  * Return true, if the redis command is a vector command accepting one or
  * more key-value pairs, otherwise return false
  */
-static int
-redis_argkvx(struct cmd *r)
-{
+static int redis_argkvx(struct cmd *r) {
     switch (r->type) {
     case CMD_REQ_REDIS_MSET:
         return 1;
@@ -273,9 +255,7 @@ redis_argkvx(struct cmd *r)
  * followed by zero or more arguments (the documentation online seems to suggest
  * that at least one argument is required, but that shouldn't be the case).
  */
-static int
-redis_argeval(struct cmd *r)
-{
+static int redis_argeval(struct cmd *r) {
     switch (r->type) {
     case CMD_REQ_REDIS_EVAL:
     case CMD_REQ_REDIS_EVALSHA:
@@ -312,9 +292,7 @@ redis_argeval(struct cmd *r)
  *
  * only supports the Redis unified protocol for requests.
  */
-void
-redis_parse_cmd(struct cmd *r)
-{
+void redis_parse_cmd(struct cmd *r) {
     int len;
     char *p, *m, *token = NULL;
     char *cmd_end;
@@ -443,9 +421,9 @@ redis_parse_cmd(struct cmd *r)
 
             m = token + rlen;
             if (m >= cmd_end) {
-                //m = cmd_end - 1;
-                //p = m;
-                //break;
+                // m = cmd_end - 1;
+                // p = m;
+                // break;
                 goto error;
             }
 
@@ -935,7 +913,8 @@ redis_parse_cmd(struct cmd *r)
                 break;
 
             case 10:
-                if (str10icmp(m, 's', 'd', 'i', 'f', 'f', 's', 't', 'o', 'r', 'e')) {
+                if (str10icmp(m, 's', 'd', 'i', 'f', 'f', 's', 't', 'o', 'r',
+                              'e')) {
                     r->type = CMD_REQ_REDIS_SDIFFSTORE;
                     break;
                 }
@@ -943,37 +922,44 @@ redis_parse_cmd(struct cmd *r)
                 break;
 
             case 11:
-                if (str11icmp(m, 'i', 'n', 'c', 'r', 'b', 'y', 'f', 'l', 'o', 'a', 't')) {
+                if (str11icmp(m, 'i', 'n', 'c', 'r', 'b', 'y', 'f', 'l', 'o',
+                              'a', 't')) {
                     r->type = CMD_REQ_REDIS_INCRBYFLOAT;
                     break;
                 }
 
-                if (str11icmp(m, 's', 'i', 'n', 't', 'e', 'r', 's', 't', 'o', 'r', 'e')) {
+                if (str11icmp(m, 's', 'i', 'n', 't', 'e', 'r', 's', 't', 'o',
+                              'r', 'e')) {
                     r->type = CMD_REQ_REDIS_SINTERSTORE;
                     break;
                 }
 
-                if (str11icmp(m, 's', 'r', 'a', 'n', 'd', 'm', 'e', 'm', 'b', 'e', 'r')) {
+                if (str11icmp(m, 's', 'r', 'a', 'n', 'd', 'm', 'e', 'm', 'b',
+                              'e', 'r')) {
                     r->type = CMD_REQ_REDIS_SRANDMEMBER;
                     break;
                 }
 
-                if (str11icmp(m, 's', 'u', 'n', 'i', 'o', 'n', 's', 't', 'o', 'r', 'e')) {
+                if (str11icmp(m, 's', 'u', 'n', 'i', 'o', 'n', 's', 't', 'o',
+                              'r', 'e')) {
                     r->type = CMD_REQ_REDIS_SUNIONSTORE;
                     break;
                 }
 
-                if (str11icmp(m, 'z', 'i', 'n', 't', 'e', 'r', 's', 't', 'o', 'r', 'e')) {
+                if (str11icmp(m, 'z', 'i', 'n', 't', 'e', 'r', 's', 't', 'o',
+                              'r', 'e')) {
                     r->type = CMD_REQ_REDIS_ZINTERSTORE;
                     break;
                 }
 
-                if (str11icmp(m, 'z', 'u', 'n', 'i', 'o', 'n', 's', 't', 'o', 'r', 'e')) {
+                if (str11icmp(m, 'z', 'u', 'n', 'i', 'o', 'n', 's', 't', 'o',
+                              'r', 'e')) {
                     r->type = CMD_REQ_REDIS_ZUNIONSTORE;
                     break;
                 }
 
-                if (str11icmp(m, 'z', 'r', 'a', 'n', 'g', 'e', 'b', 'y', 'l', 'e', 'x')) {
+                if (str11icmp(m, 'z', 'r', 'a', 'n', 'g', 'e', 'b', 'y', 'l',
+                              'e', 'x')) {
                     r->type = CMD_REQ_REDIS_ZRANGEBYLEX;
                     break;
                 }
@@ -981,7 +967,8 @@ redis_parse_cmd(struct cmd *r)
                 break;
 
             case 12:
-                if (str12icmp(m, 'h', 'i', 'n', 'c', 'r', 'b', 'y', 'f', 'l', 'o', 'a', 't')) {
+                if (str12icmp(m, 'h', 'i', 'n', 'c', 'r', 'b', 'y', 'f', 'l',
+                              'o', 'a', 't')) {
                     r->type = CMD_REQ_REDIS_HINCRBYFLOAT;
                     break;
                 }
@@ -989,7 +976,8 @@ redis_parse_cmd(struct cmd *r)
                 break;
 
             case 13:
-                if (str13icmp(m, 'z', 'r', 'a', 'n', 'g', 'e', 'b', 'y', 's', 'c', 'o', 'r', 'e')) {
+                if (str13icmp(m, 'z', 'r', 'a', 'n', 'g', 'e', 'b', 'y', 's',
+                              'c', 'o', 'r', 'e')) {
                     r->type = CMD_REQ_REDIS_ZRANGEBYSCORE;
                     break;
                 }
@@ -997,7 +985,8 @@ redis_parse_cmd(struct cmd *r)
                 break;
 
             case 14:
-                if (str14icmp(m, 'z', 'r', 'e', 'm', 'r', 'a', 'n', 'g', 'e', 'b', 'y', 'l', 'e', 'x')) {
+                if (str14icmp(m, 'z', 'r', 'e', 'm', 'r', 'a', 'n', 'g', 'e',
+                              'b', 'y', 'l', 'e', 'x')) {
                     r->type = CMD_REQ_REDIS_ZREMRANGEBYLEX;
                     break;
                 }
@@ -1005,7 +994,8 @@ redis_parse_cmd(struct cmd *r)
                 break;
 
             case 15:
-                if (str15icmp(m, 'z', 'r', 'e', 'm', 'r', 'a', 'n', 'g', 'e', 'b', 'y', 'r', 'a', 'n', 'k')) {
+                if (str15icmp(m, 'z', 'r', 'e', 'm', 'r', 'a', 'n', 'g', 'e',
+                              'b', 'y', 'r', 'a', 'n', 'k')) {
                     r->type = CMD_REQ_REDIS_ZREMRANGEBYRANK;
                     break;
                 }
@@ -1013,12 +1003,14 @@ redis_parse_cmd(struct cmd *r)
                 break;
 
             case 16:
-                if (str16icmp(m, 'z', 'r', 'e', 'm', 'r', 'a', 'n', 'g', 'e', 'b', 'y', 's', 'c', 'o', 'r', 'e')) {
+                if (str16icmp(m, 'z', 'r', 'e', 'm', 'r', 'a', 'n', 'g', 'e',
+                              'b', 'y', 's', 'c', 'o', 'r', 'e')) {
                     r->type = CMD_REQ_REDIS_ZREMRANGEBYSCORE;
                     break;
                 }
 
-                if (str16icmp(m, 'z', 'r', 'e', 'v', 'r', 'a', 'n', 'g', 'e', 'b', 'y', 's', 'c', 'o', 'r', 'e')) {
+                if (str16icmp(m, 'z', 'r', 'e', 'v', 'r', 'a', 'n', 'g', 'e',
+                              'b', 'y', 's', 'c', 'o', 'r', 'e')) {
                     r->type = CMD_REQ_REDIS_ZREVRANGEBYSCORE;
                     break;
                 }
@@ -1064,7 +1056,7 @@ redis_parse_cmd(struct cmd *r)
             } else if (isdigit(ch)) {
                 rlen = rlen * 10 + (uint32_t)(ch - '0');
             } else if (ch == CR) {
-                
+
                 if (rnarg == 0) {
                     goto error;
                 }
@@ -1096,18 +1088,18 @@ redis_parse_cmd(struct cmd *r)
 
             m = token + rlen;
             if (m >= cmd_end) {
-                //m = b->last - 1;
-                //p = m;
-                //break;
+                // m = b->last - 1;
+                // p = m;
+                // break;
                 goto error;
             }
 
             if (*m != CR) {
                 goto error;
-            } else {        /* got a key */
+            } else { /* got a key */
                 struct keypos *kpos;
 
-                p = m;      /* move forward by rlen bytes */
+                p = m; /* move forward by rlen bytes */
                 rlen = 0;
                 m = token;
                 token = NULL;
@@ -1118,7 +1110,7 @@ redis_parse_cmd(struct cmd *r)
                 }
                 kpos->start = m;
                 kpos->end = p;
-                //kpos->v_len = 0;
+                // kpos->v_len = 0;
 
                 state = SW_KEY_LF;
             }
@@ -1209,7 +1201,7 @@ redis_parse_cmd(struct cmd *r)
                     {
                         goto error;
                     }
-                    
+
                     kpos = array_n(r->keys, array_len-1);
                     if (kpos == NULL || kpos->v_len != 0) {
                         goto error;
@@ -1240,10 +1232,10 @@ redis_parse_cmd(struct cmd *r)
         case SW_ARG1:
             m = p + rlen;
             if (m >= cmd_end) {
-                //rlen -= (uint32_t)(b->last - p);
-                //m = b->last - 1;
-                //p = m;
-                //break;
+                // rlen -= (uint32_t)(b->last - p);
+                // m = b->last - 1;
+                // p = m;
+                // break;
                 goto error;
             }
 
@@ -1340,18 +1332,18 @@ redis_parse_cmd(struct cmd *r)
         case SW_ARG2:
             if (token == NULL && redis_argeval(r)) {
                 /*
-                 * For EVAL/EVALSHA, ARG2 represents the # key/arg pairs which must
-                 * be tokenized and stored in contiguous memory.
+                 * For EVAL/EVALSHA, ARG2 represents the # key/arg pairs which
+                 * must be tokenized and stored in contiguous memory.
                  */
                 token = p;
             }
 
             m = p + rlen;
             if (m >= cmd_end) {
-                //rlen -= (uint32_t)(b->last - p);
-                //m = b->last - 1;
-                //p = m;
-                //break;
+                // rlen -= (uint32_t)(b->last - p);
+                // m = b->last - 1;
+                // p = m;
+                // break;
                 goto error;
             }
 
@@ -1467,10 +1459,10 @@ redis_parse_cmd(struct cmd *r)
         case SW_ARG3:
             m = p + rlen;
             if (m >= cmd_end) {
-                //rlen -= (uint32_t)(b->last - p);
-                //m = b->last - 1;
-                //p = m;
-                //break;
+                // rlen -= (uint32_t)(b->last - p);
+                // m = b->last - 1;
+                // p = m;
+                // break;
                 goto error;
             }
 
@@ -1546,10 +1538,10 @@ redis_parse_cmd(struct cmd *r)
         case SW_ARGN:
             m = p + rlen;
             if (m >= cmd_end) {
-                //rlen -= (uint32_t)(b->last - p);
-                //m = b->last - 1;
-                //p = m;
-                //break;
+                // rlen -= (uint32_t)(b->last - p);
+                // m = b->last - 1;
+                // p = m;
+                // break;
                 goto error;
             }
 
@@ -1597,39 +1589,39 @@ redis_parse_cmd(struct cmd *r)
 done:
 
     ASSERT(r->type > CMD_UNKNOWN && r->type < CMD_SENTINEL);
-    
+
     r->result = CMD_PARSE_OK;
 
     return;
 
 enomem:
-    
+
     r->result = CMD_PARSE_ENOMEM;
 
     return;
 
 error:
-    
+
     r->result = CMD_PARSE_ERROR;
     errno = EINVAL;
-    if(r->errstr == NULL){
-        r->errstr = hi_alloc(100*sizeof(*r->errstr));
+    if (r->errstr == NULL) {
+        r->errstr = hi_alloc(100 * sizeof(*r->errstr));
     }
 
-    len = _scnprintf(r->errstr, 100, "Parse command error. Cmd type: %d, state: %d, break position: %d.", 
+    len = _scnprintf(
+        r->errstr, 100,
+        "Parse command error. Cmd type: %d, state: %d, break position: %d.",
         r->type, state, (int)(p - r->cmd));
     r->errstr[len] = '\0';
 }
 
-struct cmd *command_get()
-{
+struct cmd *command_get() {
     struct cmd *command;
     command = hi_alloc(sizeof(struct cmd));
-    if(command == NULL)
-    {
+    if (command == NULL) {
         return NULL;
     }
-        
+
     command->id = ++cmd_id;
     command->result = CMD_PARSE_OK;
     command->errstr = NULL;
@@ -1648,8 +1640,7 @@ struct cmd *command_get()
     command->sub_commands = NULL;
 
     command->keys = hiarray_create(1, sizeof(struct keypos));
-    if (command->keys == NULL) 
-    {
+    if (command->keys == NULL) {
         hi_free(command);
         return NULL;
     }
@@ -1657,45 +1648,36 @@ struct cmd *command_get()
     return command;
 }
 
-void command_destroy(struct cmd *command)
-{
-    if(command == NULL)
-    {
+void command_destroy(struct cmd *command) {
+    if (command == NULL) {
         return;
     }
 
-    if(command->cmd != NULL)
-    {
+    if (command->cmd != NULL) {
         hi_free(command->cmd);
     }
 
-    if(command->errstr != NULL){
+    if (command->errstr != NULL) {
         hi_free(command->errstr);
     }
 
-    if(command->keys != NULL)
-    {
+    if (command->keys != NULL) {
         command->keys->nelem = 0;
         hiarray_destroy(command->keys);
     }
 
-    if(command->frag_seq != NULL)
-    {
+    if (command->frag_seq != NULL) {
         hi_free(command->frag_seq);
         command->frag_seq = NULL;
     }
 
-    if(command->reply != NULL)
-    {
+    if (command->reply != NULL) {
         freeReplyObject(command->reply);
     }
 
-    if(command->sub_commands != NULL)
-    {
+    if (command->sub_commands != NULL) {
         listRelease(command->sub_commands);
     }
-    
+
     hi_free(command);
 }
-
-
