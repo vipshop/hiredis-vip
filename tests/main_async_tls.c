@@ -8,7 +8,7 @@
 void getCallback(redisClusterAsyncContext *cc, void *r, void *privdata) {
     redisReply *reply = (redisReply *)r;
     if (reply == NULL) {
-        if (cc->errstr) {
+        if (cc->err) {
             printf("errstr: %s\n", cc->errstr);
         }
         return;
@@ -22,7 +22,7 @@ void getCallback(redisClusterAsyncContext *cc, void *r, void *privdata) {
 void setCallback(redisClusterAsyncContext *cc, void *r, void *privdata) {
     redisReply *reply = (redisReply *)r;
     if (reply == NULL) {
-        if (cc->errstr) {
+        if (cc->err) {
             printf("errstr: %s\n", cc->errstr);
         }
         return;

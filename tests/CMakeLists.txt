@@ -18,6 +18,13 @@ endif()
 
 find_library(EVENT_LIBRARY event HINTS /usr/lib/x86_64-linux-gnu)
 
+if(MSVC)
+  # MS Visual: Suppress warnings
+  add_compile_options("/wd 4267" "/wd 4244")
+else()
+  add_compile_options(-Wall -Wextra -pedantic -Werror)
+endif()
+
 # Executable: IPv4
 add_executable(example_ipv4 main.c)
 target_link_libraries(example_ipv4 hiredis_cluster hiredis ${SSL_LIBRARY})
