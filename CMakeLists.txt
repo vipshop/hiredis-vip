@@ -49,6 +49,10 @@ if(MSVC)
   target_compile_options(hiredis_cluster PRIVATE "/wd 4267" "/wd 4244")
 else()
   target_compile_options(hiredis_cluster PRIVATE -Wall -Wextra -pedantic -Werror)
+
+  # Add extra defines when CMAKE_BUILD_TYPE is set to Debug
+  set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -DHI_ASSERT_PANIC -DHI_HAVE_BACKTRACE")
+  # Alternative: -DHI_ASSERT_LOG)
 endif()
 
 set_target_properties(hiredis_cluster
