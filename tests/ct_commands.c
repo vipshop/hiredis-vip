@@ -4,12 +4,30 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define ASSERT_MSG(_x, _msg) if(!(_x)) {fprintf(stderr, "ERROR: %s\n", _msg); assert(_x); }
-#define REPLY(_ctx, _reply) if(!(_reply)) {ASSERT_MSG(_reply, _ctx->errstr); }
-#define REPLY_TYPE(_reply, _type) ASSERT_MSG((_reply->type == _type), "Reply type incorrect");
+#define ASSERT_MSG(_x, _msg)                                                   \
+    if (!(_x)) {                                                               \
+        fprintf(stderr, "ERROR: %s\n", _msg);                                  \
+        assert(_x);                                                            \
+    }
+#define REPLY(_ctx, _reply)                                                    \
+    if (!(_reply)) {                                                           \
+        ASSERT_MSG(_reply, _ctx->errstr);                                      \
+    }
+#define REPLY_TYPE(_reply, _type)                                              \
+    ASSERT_MSG((_reply->type == _type), "Reply type incorrect");
 
-#define CHECK_REPLY_OK(_ctx, _reply) { REPLY(_ctx, _reply); REPLY_TYPE(_reply, REDIS_REPLY_STATUS); ASSERT_MSG((strcmp(_reply->str, "OK") == 0), _ctx->errstr); }
-#define CHECK_REPLY_INT(_ctx, _reply, _value) { REPLY(_ctx, _reply); REPLY_TYPE(_reply, REDIS_REPLY_INTEGER); ASSERT_MSG((_reply->integer == _value), _ctx->errstr); }
+#define CHECK_REPLY_OK(_ctx, _reply)                                           \
+    {                                                                          \
+        REPLY(_ctx, _reply);                                                   \
+        REPLY_TYPE(_reply, REDIS_REPLY_STATUS);                                \
+        ASSERT_MSG((strcmp(_reply->str, "OK") == 0), _ctx->errstr);            \
+    }
+#define CHECK_REPLY_INT(_ctx, _reply, _value)                                  \
+    {                                                                          \
+        REPLY(_ctx, _reply);                                                   \
+        REPLY_TYPE(_reply, REDIS_REPLY_INTEGER);                               \
+        ASSERT_MSG((_reply->integer == _value), _ctx->errstr);                 \
+    }
 
 void test_exists(redisClusterContext *cc) {
     redisReply *reply;

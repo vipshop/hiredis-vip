@@ -2804,25 +2804,19 @@ static void *command_post_fragment(redisClusterContext *cc, struct cmd *command,
 
         if (command->type == CMD_REQ_REDIS_MGET) {
             if (reply->type != REDIS_REPLY_ARRAY) {
-                __redisClusterSetError(
-                    cc, REDIS_ERR_OTHER,
-                    "reply type error");
+                __redisClusterSetError(cc, REDIS_ERR_OTHER, "reply type error");
                 return NULL;
             }
         } else if (command->type == CMD_REQ_REDIS_DEL) {
             if (reply->type != REDIS_REPLY_INTEGER) {
-                __redisClusterSetError(
-                    cc, REDIS_ERR_OTHER,
-                    "reply type error");
+                __redisClusterSetError(cc, REDIS_ERR_OTHER, "reply type error");
                 return NULL;
             }
 
             count += reply->integer;
         } else if (command->type == CMD_REQ_REDIS_EXISTS) {
             if (reply->type != REDIS_REPLY_INTEGER) {
-                __redisClusterSetError(
-                    cc, REDIS_ERR_OTHER,
-                    "reply type error");
+                __redisClusterSetError(cc, REDIS_ERR_OTHER, "reply type error");
                 return NULL;
             }
 
@@ -2830,9 +2824,7 @@ static void *command_post_fragment(redisClusterContext *cc, struct cmd *command,
         } else if (command->type == CMD_REQ_REDIS_MSET) {
             if (reply->type != REDIS_REPLY_STATUS || reply->len != 2 ||
                 strcmp(reply->str, REDIS_STATUS_OK) != 0) {
-                __redisClusterSetError(
-                    cc, REDIS_ERR_OTHER,
-                    "reply type error");
+                __redisClusterSetError(cc, REDIS_ERR_OTHER, "reply type error");
                 return NULL;
             }
         } else {
