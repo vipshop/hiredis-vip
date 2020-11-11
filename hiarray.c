@@ -147,7 +147,7 @@ void hiarray_sort(struct hiarray *a, hiarray_compare_t compare) {
 int hiarray_each(struct hiarray *a, hiarray_each_t func, void *data) {
     uint32_t i, nelem;
 
-    ASSERT(array_n(a) != 0);
+    ASSERT(hiarray_n(a) != 0);
     ASSERT(func != NULL);
 
     for (i = 0, nelem = hiarray_n(a); i < nelem; i++) {

@@ -40,6 +40,10 @@ add_executable(example_async main_async.c)
 target_link_libraries(example_async hiredis_cluster hiredis ${SSL_LIBRARY} ${EVENT_LIBRARY})
 add_test(NAME example_async COMMAND "$<TARGET_FILE:example_async>")
 
+add_executable(ct_commands ct_commands.c)
+target_link_libraries(ct_commands hiredis_cluster hiredis ${SSL_LIBRARY})
+add_test(NAME ct_commands COMMAND "$<TARGET_FILE:ct_commands>")
+
 if(ENABLE_SSL)
   # Executable: tls
   add_executable(example_tls main_tls.c)

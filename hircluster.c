@@ -2509,6 +2509,7 @@ static int command_pre_fragment(redisClusterContext *cc, struct cmd *command,
         goto done;
     }
 
+    // Fill sub_command with key, slot and command length (clen, only keylength)
     for (i = 0; i < key_count; i++) {
         kp = hiarray_get(command->keys, i);
 
@@ -2543,6 +2544,7 @@ static int command_pre_fragment(redisClusterContext *cc, struct cmd *command,
         sub_kp->start = kp->start;
         sub_kp->end = kp->end;
 
+        // Number of characters in key
         key_len = (uint32_t)(kp->end - kp->start);
 
         sub_command->clen += key_len + uint_len(key_len);
@@ -2572,7 +2574,8 @@ static int command_pre_fragment(redisClusterContext *cc, struct cmd *command,
         }
     }
 
-    for (i = 0; i < REDIS_CLUSTER_SLOTS; i++) { /* prepend command header */
+    /* prepend command header */
+    for (i = 0; i < REDIS_CLUSTER_SLOTS; i++) {
         sub_command = sub_commands[i];
         if (sub_command == NULL) {
             continue;
@@ -2646,6 +2649,48 @@ static int command_pre_fragment(redisClusterContext *cc, struct cmd *command,
             idx += num_str_len;
             memcpy(sub_command->cmd + idx, "\r\n$3\r\ndel\r\n", 11);
             idx += 11;
+
+            for (j = 0; j < hiarray_n(sub_command->keys); j++) {
+                kp = hiarray_get(sub_command->keys, j);
+                key_len = (uint32_t)(kp->end - kp->start);
+                hi_itoa(num_str, key_len);
+                num_str_len = strlen(num_str);
+
+                sub_command->cmd[idx++] = '$';
+                memcpy(sub_command->cmd + idx, num_str, num_str_len);
+                idx += num_str_len;
+                memcpy(sub_command->cmd + idx, CRLF, CRLF_LEN);
+                idx += CRLF_LEN;
+                memcpy(sub_command->cmd + idx, kp->start, key_len);
+                idx += key_len;
+                memcpy(sub_command->cmd + idx, CRLF, CRLF_LEN);
+                idx += CRLF_LEN;
+            }
+        } else if (command->type == CMD_REQ_REDIS_EXISTS) {
+            //"*%d\r\n$6\r\nexists\r\n"
+
+            sub_command->clen += 5 * sub_command->narg;
+
+            sub_command->narg++;
+
+            hi_itoa(num_str, sub_command->narg);
+            num_str_len = (uint8_t)strlen(num_str);
+
+            sub_command->clen += 15 + num_str_len;
+
+            sub_command->cmd =
+                hi_zalloc(sub_command->clen * sizeof(*sub_command->cmd));
+            if (sub_command->cmd == NULL) {
+                __redisClusterSetError(cc, REDIS_ERR_OOM, "Out of memory");
+                slot_num = -1;
+                goto done;
+            }
+
+            sub_command->cmd[idx++] = '*';
+            memcpy(sub_command->cmd + idx, num_str, num_str_len);
+            idx += num_str_len;
+            memcpy(sub_command->cmd + idx, "\r\n$6\r\nexists\r\n", 14);
+            idx += 14;
 
             for (j = 0; j < hiarray_n(sub_command->keys); j++) {
                 kp = hiarray_get(sub_command->keys, j);
@@ -2761,14 +2806,23 @@ static void *command_post_fragment(redisClusterContext *cc, struct cmd *command,
             if (reply->type != REDIS_REPLY_ARRAY) {
                 __redisClusterSetError(
                     cc, REDIS_ERR_OTHER,
-                    "reply type is error(here only can be array)");
+                    "reply type error");
                 return NULL;
             }
         } else if (command->type == CMD_REQ_REDIS_DEL) {
             if (reply->type != REDIS_REPLY_INTEGER) {
                 __redisClusterSetError(
                     cc, REDIS_ERR_OTHER,
-                    "reply type is error(here only can be integer)");
+                    "reply type error");
+                return NULL;
+            }
+
+            count += reply->integer;
+        } else if (command->type == CMD_REQ_REDIS_EXISTS) {
+            if (reply->type != REDIS_REPLY_INTEGER) {
+                __redisClusterSetError(
+                    cc, REDIS_ERR_OTHER,
+                    "reply type error");
                 return NULL;
             }
 
@@ -2778,7 +2832,7 @@ static void *command_post_fragment(redisClusterContext *cc, struct cmd *command,
                 strcmp(reply->str, REDIS_STATUS_OK) != 0) {
                 __redisClusterSetError(
                     cc, REDIS_ERR_OTHER,
-                    "reply type is error(here only can be status and ok)");
+                    "reply type error");
                 return NULL;
             }
         } else {
@@ -2833,6 +2887,9 @@ static void *command_post_fragment(redisClusterContext *cc, struct cmd *command,
             }
         }
     } else if (command->type == CMD_REQ_REDIS_DEL) {
+        reply->type = REDIS_REPLY_INTEGER;
+        reply->integer = count;
+    } else if (command->type == CMD_REQ_REDIS_EXISTS) {
         reply->type = REDIS_REPLY_INTEGER;
         reply->integer = count;
     } else if (command->type == CMD_REQ_REDIS_MSET) {

@@ -30,7 +30,6 @@ static int redis_argz(struct cmd *r) {
  */
 static int redis_arg0(struct cmd *r) {
     switch (r->type) {
-    case CMD_REQ_REDIS_EXISTS:
     case CMD_REQ_REDIS_PERSIST:
     case CMD_REQ_REDIS_PTTL:
     case CMD_REQ_REDIS_SORT:
@@ -222,6 +221,7 @@ static int redis_argn(struct cmd *r) {
  */
 static int redis_argx(struct cmd *r) {
     switch (r->type) {
+    case CMD_REQ_REDIS_EXISTS:
     case CMD_REQ_REDIS_MGET:
     case CMD_REQ_REDIS_DEL:
         return 1;
