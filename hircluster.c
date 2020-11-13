@@ -425,6 +425,42 @@ static void cluster_open_slot_destroy(copen_slot *oslot) {
 }
 
 /**
+ * Handle password authentication in the synchronous API
+ */
+static int authenticate(redisClusterContext *cc, redisContext *c) {
+    if (cc == NULL || c == NULL) {
+        return REDIS_ERR;
+    }
+
+    // Skip if no password configured
+    if (cc->password[0] == '\0') {
+        return REDIS_OK;
+    }
+
+    redisReply *reply = redisCommand(c, "AUTH %s", cc->password);
+    if (reply == NULL) {
+        __redisClusterSetError(cc, REDIS_ERR_OTHER,
+                               "Command AUTH reply error (NULL)");
+        goto error;
+    }
+
+    if (reply->type == REDIS_REPLY_ERROR) {
+        __redisClusterSetError(cc, REDIS_ERR_OTHER, reply->str);
+        goto error;
+    }
+
+    freeReplyObject(reply);
+    return REDIS_OK;
+
+error:
+    if (reply != NULL) {
+        freeReplyObject(reply);
+        reply = NULL;
+    }
+    return REDIS_ERR;
+}
+
+/**
  * Return a new node with the "cluster slots" command reply.
  */
 static cluster_node *node_get_with_slots(redisClusterContext *cc,
@@ -1262,6 +1298,11 @@ static int cluster_update_route_by_addr(redisClusterContext *cc, const char *ip,
         }
     }
 #endif
+
+    if (authenticate(cc, c) != REDIS_OK) {
+        goto error;
+    }
+
     if (cc->flags & HIRCLUSTER_FLAG_ROUTE_USE_SLOTS) {
         reply = redisCommand(c, REDIS_COMMAND_CLUSTER_SLOTS);
         if (reply == NULL) {
@@ -1583,6 +1624,8 @@ redisClusterContext *redisClusterContextInit(void) {
 #ifdef SSL_SUPPORT
     cc->ssl = NULL;
 #endif
+    cc->password[0] = '\0';
+
     return cc;
 }
 
@@ -1848,6 +1891,27 @@ int redisClusterSetOptionConnectNonBlock(redisClusterContext *cc) {
     return REDIS_OK;
 }
 
+/**
+ * Configure a password used when connecting to password-protected
+ * Redis instances. (See Redis AUTH command)
+ */
+int redisClusterSetOptionPassword(redisClusterContext *cc,
+                                  const char *password) {
+
+    if (cc == NULL || password == NULL) {
+        return REDIS_ERR;
+    }
+
+    if (strlen(password) > CONFIG_AUTHPASS_MAX_LEN) {
+        return REDIS_ERR;
+    }
+
+    strncpy(cc->password, password, sizeof(cc->password) - 1);
+    cc->password[sizeof(cc->password) - 1] = '\0';
+
+    return REDIS_OK;
+}
+
 int redisClusterSetOptionParseSlaves(redisClusterContext *cc) {
 
     if (cc == NULL) {
@@ -2001,6 +2065,7 @@ redisContext *ctx_get_by_node(redisClusterContext *cc, cluster_node *node) {
                 }
             }
 #endif
+            authenticate(cc, c); // err and errstr handled in function
 
             if (cc->timeout && c->err == 0) {
                 redisSetTimeout(c, *cc->timeout);
@@ -2034,6 +2099,11 @@ redisContext *ctx_get_by_node(redisClusterContext *cc, cluster_node *node) {
         }
     }
 #endif
+
+    if (authenticate(cc, c) != REDIS_OK) {
+        redisFree(c);
+        return NULL;
+    }
 
     node->con = c;
 
@@ -3593,6 +3663,7 @@ static void unlinkAsyncContextAndNode(void *data) {
 redisAsyncContext *actx_get_by_node(redisClusterAsyncContext *acc,
                                     cluster_node *node) {
     redisAsyncContext *ac;
+    int ret;
 
     if (node == NULL) {
         return NULL;
@@ -3606,6 +3677,8 @@ redisAsyncContext *actx_get_by_node(redisClusterAsyncContext *acc,
             NOT_REACHED();
         }
     }
+
+    // No async context exists, perform a connect
 
     if (node->host == NULL || node->port <= 0) {
         __redisClusterAsyncSetError(acc, REDIS_ERR_OTHER,
@@ -3622,12 +3695,24 @@ redisAsyncContext *actx_get_by_node(redisClusterAsyncContext *acc,
 
 #ifdef SSL_SUPPORT
     if (acc->cc->ssl) {
-        if (redisInitiateSSLWithContext(&ac->c, acc->cc->ssl) != REDIS_OK) {
+        ret = redisInitiateSSLWithContext(&ac->c, acc->cc->ssl);
+        if (ret != REDIS_OK) {
             __redisClusterAsyncSetError(acc, ac->c.err, ac->c.errstr);
+            redisAsyncFree(ac);
             return NULL;
         }
     }
 #endif
+
+    // Authenticate when needed
+    if (acc->cc->password[0] != '\0') {
+        ret = redisAsyncCommand(ac, NULL, NULL, "AUTH %s", acc->cc->password);
+        if (ret != REDIS_OK) {
+            __redisClusterAsyncSetError(acc, ac->c.err, ac->c.errstr);
+            redisAsyncFree(ac);
+            return NULL;
+        }
+    }
 
     if (acc->adapter) {
         acc->attach_fn(ac, acc->adapter);

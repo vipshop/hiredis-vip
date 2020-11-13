@@ -21,6 +21,8 @@
 #define REDIS_ROLE_MASTER 1
 #define REDIS_ROLE_SLAVE 2
 
+#define CONFIG_AUTHPASS_MAX_LEN 512 // Defined in Redis as max characters
+
 #define HIRCLUSTER_FLAG_NULL 0x0
 /* The flag to decide whether add slave node in
  * redisClusterContext->nodes. This is set in the
@@ -99,6 +101,8 @@ typedef struct redisClusterContext {
     int need_update_route;
     int64_t update_route_time;
 
+    char password[CONFIG_AUTHPASS_MAX_LEN + 1]; // Include a null terminator
+
 #ifdef SSL_SUPPORT
     redisSSLContext *ssl;
 #endif
@@ -118,6 +122,8 @@ int redisClusterSetOptionAddNode(redisClusterContext *cc, const char *addr);
 int redisClusterSetOptionAddNodes(redisClusterContext *cc, const char *addrs);
 int redisClusterSetOptionConnectBlock(redisClusterContext *cc);
 int redisClusterSetOptionConnectNonBlock(redisClusterContext *cc);
+int redisClusterSetOptionPassword(redisClusterContext *cc,
+                                  const char *password);
 int redisClusterSetOptionParseSlaves(redisClusterContext *cc);
 int redisClusterSetOptionParseOpenSlots(redisClusterContext *cc);
 int redisClusterSetOptionRouteUseSlots(redisClusterContext *cc);

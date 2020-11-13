@@ -25,6 +25,9 @@ else()
   add_compile_options(-Wall -Wextra -pedantic -Werror)
 endif()
 
+# Debug mode for tests
+set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "" FORCE)
+
 # Executable: IPv4
 add_executable(example_ipv4 main.c)
 target_link_libraries(example_ipv4 hiredis_cluster hiredis ${SSL_LIBRARY})
@@ -43,6 +46,12 @@ add_test(NAME example_async COMMAND "$<TARGET_FILE:example_async>")
 add_executable(ct_commands ct_commands.c)
 target_link_libraries(ct_commands hiredis_cluster hiredis ${SSL_LIBRARY})
 add_test(NAME ct_commands COMMAND "$<TARGET_FILE:ct_commands>")
+set_tests_properties(ct_commands PROPERTIES LABELS "CT")
+
+add_executable(ct_connection ct_connection.c)
+target_link_libraries(ct_connection hiredis_cluster hiredis ${SSL_LIBRARY} ${EVENT_LIBRARY})
+add_test(NAME ct_connection COMMAND "$<TARGET_FILE:ct_connection>")
+set_tests_properties(ct_connection PROPERTIES LABELS "CT")
 
 if(ENABLE_SSL)
   # Executable: tls
