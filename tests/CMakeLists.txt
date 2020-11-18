@@ -53,6 +53,11 @@ target_link_libraries(ct_connection hiredis_cluster hiredis ${SSL_LIBRARY} ${EVE
 add_test(NAME ct_connection COMMAND "$<TARGET_FILE:ct_connection>")
 set_tests_properties(ct_connection PROPERTIES LABELS "CT")
 
+add_executable(ct_pipeline ct_pipeline.c)
+target_link_libraries(ct_pipeline hiredis_cluster hiredis ${SSL_LIBRARY} ${EVENT_LIBRARY})
+add_test(NAME ct_pipeline COMMAND "$<TARGET_FILE:ct_pipeline>")
+set_tests_properties(ct_pipeline PROPERTIES LABELS "CT")
+
 if(ENABLE_SSL)
   # Executable: tls
   add_executable(example_tls main_tls.c)

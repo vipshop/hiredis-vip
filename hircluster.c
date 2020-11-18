@@ -1286,8 +1286,8 @@ static int cluster_update_route_by_addr(redisClusterContext *cc, const char *ip,
         goto error;
     }
 
-    if (cc->timeout) {
-        redisSetTimeout(c, *cc->timeout);
+    if (cc->command_timeout) {
+        redisSetTimeout(c, *cc->command_timeout);
     }
 
 #ifdef SSL_SUPPORT
@@ -1606,7 +1606,7 @@ redisClusterContext *redisClusterContextInit(void) {
     cc->errstr[0] = '\0';
     cc->flags = 0;
     cc->connect_timeout = NULL;
-    cc->timeout = NULL;
+    cc->command_timeout = NULL;
     cc->nodes = NULL;
     cc->slots = NULL;
     cc->max_redirect_count = CLUSTER_DEFAULT_MAX_REDIRECT_COUNT;
@@ -1638,8 +1638,8 @@ void redisClusterFree(redisClusterContext *cc) {
         free(cc->connect_timeout);
     }
 
-    if (cc->timeout) {
-        free(cc->timeout);
+    if (cc->command_timeout) {
+        free(cc->command_timeout);
     }
 
     memset(cc->table, 0, REDIS_CLUSTER_SLOTS * sizeof(cluster_node *));
@@ -1968,12 +1968,12 @@ int redisClusterSetOptionTimeout(redisClusterContext *cc,
         return REDIS_ERR;
     }
 
-    if (cc->timeout == NULL) {
-        cc->timeout = malloc(sizeof(struct timeval));
-        memcpy(cc->timeout, &tv, sizeof(struct timeval));
-    } else if (cc->timeout->tv_sec != tv.tv_sec ||
-               cc->timeout->tv_usec != tv.tv_usec) {
-        memcpy(cc->timeout, &tv, sizeof(struct timeval));
+    if (cc->command_timeout == NULL) {
+        cc->command_timeout = malloc(sizeof(struct timeval));
+        memcpy(cc->command_timeout, &tv, sizeof(struct timeval));
+    } else if (cc->command_timeout->tv_sec != tv.tv_sec ||
+               cc->command_timeout->tv_usec != tv.tv_usec) {
+        memcpy(cc->command_timeout, &tv, sizeof(struct timeval));
 
         if (cc->nodes && dictSize(cc->nodes) > 0) {
             dictEntry *de;
@@ -2067,8 +2067,8 @@ redisContext *ctx_get_by_node(redisClusterContext *cc, cluster_node *node) {
 #endif
             authenticate(cc, c); // err and errstr handled in function
 
-            if (cc->timeout && c->err == 0) {
-                redisSetTimeout(c, *cc->timeout);
+            if (cc->command_timeout && c->err == 0) {
+                redisSetTimeout(c, *cc->command_timeout);
             }
         }
 
@@ -2086,8 +2086,8 @@ redisContext *ctx_get_by_node(redisClusterContext *cc, cluster_node *node) {
         c = redisConnect(node->host, node->port);
     }
 
-    if (cc->timeout && c != NULL && c->err == 0) {
-        redisSetTimeout(c, *cc->timeout);
+    if (cc->command_timeout && c != NULL && c->err == 0) {
+        redisSetTimeout(c, *cc->command_timeout);
     }
 
 #ifdef SSL_SUPPORT

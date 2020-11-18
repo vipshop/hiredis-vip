@@ -84,7 +84,7 @@ typedef struct redisClusterContext {
 
     struct timeval *connect_timeout;
 
-    struct timeval *timeout; /* receive and send timeout. */
+    struct timeval *command_timeout; /* receive and send timeout. */
 
     struct hiarray *slots;
 
