@@ -47,7 +47,7 @@ and libhiredis_ssl.so when SSL is enabled.
 
 ```sh
 $ mkdir build; cd build
-$ cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DDOWNLOAD_HIREDIS=ON -DENABLE_SSL=ON ..
+$ cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DENABLE_SSL=ON ..
 $ make
 ```
 
@@ -59,8 +59,8 @@ The following CMake options are available:
   * `OFF` CMake will search for an already installed hiredis using following (paths)[https://cmake.org/cmake/help/latest/command/find_package.html#search-procedure].
   * `ON` (default) hiredis will be downloaded, built and installed locally in the build folder.
 * `ENABLE_SSL`
-  * `OFF`
-  * `ON` (default) Enable SSL/TLS support and build its tests (also affect hiredis when `DOWNLOAD_HIREDIS=ON`).
+  * `OFF` (default)
+  * `ON` Enable SSL/TLS support and build its tests (also affect hiredis when `DOWNLOAD_HIREDIS=ON`).
 * `DISABLE_TESTS`
   * `OFF` (default)
   * `ON` Disable compilation of tests (also affect hiredis when `DOWNLOAD_HIREDIS=ON`).
