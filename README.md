@@ -1,137 +1,92 @@
+# Hiredis-cluster
 
-# HIREDIS-VIP
+Hiredis-cluster is a C client library for cluster deployments of the [Redis](http://redis.io/) database.
 
-Hiredis-vip is a C client library for the [Redis](http://redis.io/) database.
+Hiredis-cluster is using [Hiredis](https://github.com/redis/hiredis) for the connections to each Redis node.
 
-Hiredis-vip supported redis cluster.
+Hiredis-cluster is a fork of Hiredis-vip, with the following improvements:
 
-Hiredis-vip fully contained and based on [Hiredis](https://github.com/redis/hiredis) .
+* The C library `hiredis` is an external dependency rather than a builtin part of the cluster client, meaning that the latest `hiredis` can be used.
+* Support for SSL/TLS introduced in Redis 6
+* Support for IPv6
+* Using CMake as build system
+* Code style guide (using clang-format)
+* Improved testing
+* Memory leak corrections
 
-## CLUSTER SUPPORT
+## Features
 
-### FEATURES:
+* Redis Cluster
+    * Connect to a Redis cluster and run commands.
 
-* **`SUPPORT REDIS CLUSTER`**:
-    * Connect to redis cluster and run commands.
-
-* **`SUPPORT MULTI-KEY COMMAND`**:
+* Multi-key commands
     * Support `MSET`, `MGET` and `DEL`.
-	
-* **`SUPPORT PIPELING`**:
-    * Support redis pipeline and can contain multi-key command like above.
-	
-* **`SUPPORT Asynchronous API`**:
-    * User can run commands with asynchronous mode.
+    * Multi-key commands will be processed and sent to slot owning nodes.
 
-### CLUSTER API:
+* Pipelining
+    * Send multiple commands at once to speed up queries.
+    * Supports multi-key commands described in above bullet.
 
-```c
-redisClusterContext *redisClusterContextInit(void);
-void redisClusterFree(redisClusterContext *cc);
+* Asynchronous API
+    * Send commands asynchronously and let a callback handle the response.
+    * Needs an external event loop system that can be attached using an adapter.
 
-int redisClusterSetOptionAddNode(redisClusterContext *cc, const char *addr);
-int redisClusterSetOptionAddNodes(redisClusterContext *cc, const char *addrs);
-int redisClusterSetOptionConnectBlock(redisClusterContext *cc);
-int redisClusterSetOptionConnectNonBlock(redisClusterContext *cc);
-int redisClusterSetOptionParseSlaves(redisClusterContext *cc);
-int redisClusterSetOptionParseOpenSlots(redisClusterContext *cc);
-int redisClusterSetOptionRouteUseSlots(redisClusterContext *cc);
-int redisClusterSetOptionConnectTimeout(redisClusterContext *cc, const struct timeval tv);
-int redisClusterSetOptionTimeout(redisClusterContext *cc, const struct timeval tv);
-int redisClusterSetOptionMaxRedirect(redisClusterContext *cc,  int max_redirect_count);
+* SSL/TLS
+    * Connect to Redis nodes using SSL/TLS (supported from Redis 6)
 
-int redisClusterConnect2(redisClusterContext *cc);
+* IPv6
+    * Handles clusters on IPv6 networks
 
-void *redisClusterFormattedCommand(redisClusterContext *cc, char *cmd, int len);
-void *redisClustervCommand(redisClusterContext *cc, const char *format, va_list ap);
-void *redisClusterCommand(redisClusterContext *cc, const char *format, ...);
-void *redisClusterCommandArgv(redisClusterContext *cc, int argc, const char **argv, const size_t *argvlen);
-int redisClusterAppendFormattedCommand(redisClusterContext *cc, char *cmd, int len);
-int redisClustervAppendCommand(redisClusterContext *cc, const char *format, va_list ap);
-int redisClusterAppendCommand(redisClusterContext *cc, const char *format, ...);
-int redisClusterAppendCommandArgv(redisClusterContext *cc, int argc, const char **argv, const size_t *argvlen);
-int redisClusterGetReply(redisClusterContext *cc, void **reply);
-void redisClusterReset(redisClusterContext *cc);
+## Build instructions
 
-redisContext *ctx_get_by_node(redisClusterContext *cc, struct cluster_node *node);
+Building hiredis-cluster and its test suites requires headerfiles and linkage to (hiredis)[https://github.com/redis/hiredis]
+and (libevent)[https://libevent.org/]. The libevent dependency can be avoided by disabling the tests.
 
-redisClusterAsyncContext *redisClusterAsyncConnect(const char *addrs, int flags);
-int redisClusterAsyncSetConnectCallback(redisClusterAsyncContext *acc, redisConnectCallback *fn);
-int redisClusterAsyncSetDisconnectCallback(redisClusterAsyncContext *acc, redisDisconnectCallback *fn);
-int redisClusterAsyncFormattedCommand(redisClusterAsyncContext *acc, redisClusterCallbackFn *fn, void *privdata, char *cmd, int len);
-int redisClustervAsyncCommand(redisClusterAsyncContext *acc, redisClusterCallbackFn *fn, void *privdata, const char *format, va_list ap);
-int redisClusterAsyncCommand(redisClusterAsyncContext *acc, redisClusterCallbackFn *fn, void *privdata, const char *format, ...);
-int redisClusterAsyncCommandArgv(redisClusterAsyncContext *acc, redisClusterCallbackFn *fn, void *privdata, int argc, const char **argv, const size_t *argvlen);
+Hiredis-cluster will be built as a shared library and the test suites will additionally depend on the shared library libhiredis.so,
+and libhiredis_ssl.so when SSL is enabled.
 
-void redisClusterAsyncDisconnect(redisClusterAsyncContext *acc);
-void redisClusterAsyncFree(redisClusterAsyncContext *acc);
-
-redisAsyncContext *actx_get_by_node(redisClusterAsyncContext *acc, cluster_node *node);
+```sh
+$ mkdir build; cd build
+$ cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DDOWNLOAD_HIREDIS=ON -DENABLE_SSL=ON ..
+$ make
 ```
 
-### CLUSTER API (old api, version <= 0.3.0):
+### Build options
 
-```c
-redisClusterContext *redisClusterConnect(const char *addrs, int flags);
-redisClusterContext *redisClusterConnectWithTimeout(const char *addrs, const struct timeval tv, int flags);
-redisClusterContext *redisClusterConnectNonBlock(const char *addrs, int flags);
-void redisClusterFree(redisClusterContext *cc);
-void redisClusterSetMaxRedirect(redisClusterContext *cc, int max_redirect_count);
-void *redisClusterFormattedCommand(redisClusterContext *cc, char *cmd, int len);
-void *redisClustervCommand(redisClusterContext *cc, const char *format, va_list ap);
-void *redisClusterCommand(redisClusterContext *cc, const char *format, ...);
-void *redisClusterCommandArgv(redisClusterContext *cc, int argc, const char **argv, const size_t *argvlen);
-redisContext *ctx_get_by_node(struct cluster_node *node, const struct timeval *timeout, int flags);
-int redisClusterAppendFormattedCommand(redisClusterContext *cc, char *cmd, int len);
-int redisClustervAppendCommand(redisClusterContext *cc, const char *format, va_list ap);
-int redisClusterAppendCommand(redisClusterContext *cc, const char *format, ...);
-int redisClusterAppendCommandArgv(redisClusterContext *cc, int argc, const char **argv, const size_t *argvlen);
-int redisClusterGetReply(redisClusterContext *cc, void **reply);
-void redisClusterReset(redisClusterContext *cc);
+The following CMake options are available:
 
-redisClusterAsyncContext *redisClusterAsyncConnect(const char *addrs, int flags);
-int redisClusterAsyncSetConnectCallback(redisClusterAsyncContext *acc, redisConnectCallback *fn);
-int redisClusterAsyncSetDisconnectCallback(redisClusterAsyncContext *acc, redisDisconnectCallback *fn);
-int redisClusterAsyncFormattedCommand(redisClusterAsyncContext *acc, redisClusterCallbackFn *fn, void *privdata, char *cmd, int len);
-int redisClustervAsyncCommand(redisClusterAsyncContext *acc, redisClusterCallbackFn *fn, void *privdata, const char *format, va_list ap);
-int redisClusterAsyncCommand(redisClusterAsyncContext *acc, redisClusterCallbackFn *fn, void *privdata, const char *format, ...);
-int redisClusterAsyncCommandArgv(redisClusterAsyncContext *acc, redisClusterCallbackFn *fn, void *privdata, int argc, const char **argv, const size_t *argvlen);
+* `DOWNLOAD_HIREDIS`
+  * `OFF` CMake will search for an already installed hiredis using following (paths)[https://cmake.org/cmake/help/latest/command/find_package.html#search-procedure].
+  * `ON` (default) hiredis will be downloaded, built and installed locally in the build folder.
+* `ENABLE_SSL`
+  * `OFF`
+  * `ON` (default) Enable SSL/TLS support and build its tests (also affect hiredis when `DOWNLOAD_HIREDIS=ON`).
+* `DISABLE_TESTS`
+  * `OFF` (default)
+  * `ON` Disable compilation of tests (also affect hiredis when `DOWNLOAD_HIREDIS=ON`).
 
-void redisClusterAsyncDisconnect(redisClusterAsyncContext *acc);
-void redisClusterAsyncFree(redisClusterAsyncContext *acc);
-```
+### Build details
+
+The build uses CMake's (find_package)[https://cmake.org/cmake/help/latest/command/find_package.html] to search for a `hiredis` installation.
+When building and installing `hiredis` a file called `hiredis-config.cmake` will be installed and this contains relevant information for users.
+
+As described in the CMake docs a specific path can be set using a flag like: `-Dhiredis_DIR:PATH=${MY_DIR}/hiredis/share/hiredis`
+
 
 ## Quick usage
 
-If you want used but not read the follow, please reference the examples:
-https://github.com/vipshop/hiredis-vip/wiki
-
 ## Cluster synchronous API
 
-To consume the synchronous API, there are only a few function calls that need to be introduced:
+### Connecting
 
-```c
-redisClusterContext *redisClusterContextInit(void);
-int redisClusterSetOptionAddNodes(redisClusterContext *cc, const char *addrs);
-int redisClusterSetOptionMaxRedirect(redisClusterContext *cc, int max_redirect_count);
-int redisClusterSetOptionConnectTimeout(redisClusterContext *cc, const struct timeval tv);
-int redisClusterSetOptionTimeout(redisClusterContext *cc, const struct timeval tv);
-int redisClusterConnect2(redisClusterContext *cc);
-void *redisClusterCommand(redisClusterContext *cc, const char *format, ...);
-void redisClusterFree(redisClusterContext *cc);
-```
-
-### Cluster connecting
-
-The function `redisClusterContextInit` is used to create a so-called `redisClusterContext`. 
-The function `redisClusterSetOptionAddNodes` is used to add the redis cluster address. 
-The function `redisClusterConnect2` is used to connect to the redis cluser. 
-The context is where Hiredis-vip Cluster holds state for connections. The `redisClusterContext`
-struct has an integer `err` field that is non-zero when the connection is in
-an error state. The field `errstr` will contain a string with a description of
-the error.
-After trying to connect to Redis using `redisClusterContext` you should
-check the `err` field to see if establishing the connection was successful:
+The function `redisClusterContextInit` is used to create a `redisClusterContext`.
+The function `redisClusterSetOptionAddNodes` is used to add one or many Redis Cluster addresses.
+The function `redisClusterConnect2` is used to connect to the Redis Cluster.
+The context is where the state for connections is kept.
+The `redisClusterContext`struct has an integer `err` field that is non-zero when the connection is
+in an error state. The field `errstr` will contain a string with a description of the error.
+After trying to connect to Redis using `redisClusterContext` you should check the `err` field to see
+if establishing the connection was successful:
 ```c
 redisClusterContext *cc = redisClusterContextInit();
 redisClusterSetOptionAddNodes(cc, "127.0.0.1:6379,127.0.0.1:6380");
@@ -142,11 +97,10 @@ if (cc != NULL && cc->err) {
 }
 ```
 
-### Cluster sending commands
+### Sending commands
 
-The next that will be introduced is `redisClusterCommand`. 
-This function takes a format similar to printf. In the simplest form,
-it is used like this:
+The function `redisClusterCommand` takes a format similar to printf.
+In the simplest form it is used like:
 ```c
 reply = redisClusterCommand(clustercontext, "SET foo bar");
 ```
@@ -156,7 +110,7 @@ determine the length of the string:
 ```c
 reply = redisClusterCommand(clustercontext, "SET foo %s", value);
 ```
-Internally, Hiredis-vip splits the command in different arguments and will
+Internally, hiredis-cluster splits the command in different arguments and will
 convert it to the protocol used to communicate with Redis.
 One or more spaces separates arguments, so you can use the specifiers
 anywhere in an argument:
@@ -164,31 +118,29 @@ anywhere in an argument:
 reply = redisClusterCommand(clustercontext, "SET key:%s %s", myid, value);
 ```
 
-### Cluster multi-key commands
+### Sending multi-key commands
 
-Hiredis-vip supports mget/mset/del multi-key commands.
-Those multi-key commands is highly effective.
-Millions of keys in one mget command just used several seconds.
+Hiredis-cluster supports mget/mset/del multi-key commands.
+The command will be splitted per slot and sent to correct Redis nodes.
 
 Example:
 ```c
 reply = redisClusterCommand(clustercontext, "mget %s %s %s %s", key1, key2, key3, key4);
 ```
 
-### Cluster cleaning up
+### Teardown
 
 To disconnect and free the context the following function can be used:
 ```c
 void redisClusterFree(redisClusterContext *cc);
 ```
-This function immediately closes the socket and then frees the allocations done in
-creating the context.
+This function closes the sockets and deallocates the context.
 
 ### Cluster pipelining
 
-The function `redisClusterGetReply` is exported as part of the Hiredis API and can be used 
-when a reply is expected on the socket. To pipeline commands, the only things that needs 
-to be done is filling up the output buffer. For this cause, two commands can be used that 
+The function `redisClusterGetReply` is exported as part of the Hiredis API and can be used
+when a reply is expected on the socket. To pipeline commands, the only things that needs
+to be done is filling up the output buffer. For this cause, two commands can be used that
 are identical to the `redisClusterCommand` family, apart from not returning a reply:
 ```c
 int redisClusterAppendCommand(redisClusterContext *cc, const char *format, ...);
@@ -217,9 +169,10 @@ redisClusterReset(clusterContext);
 
 ## Cluster asynchronous API
 
-Hiredis-vip comes with an cluster asynchronous API that works easily with any event library.
-Now we just support and test for libevent and redis ae, if you need for other event libraries,
-please contact with us, and we will support it quickly.
+Hiredis-cluster comes with an asynchronous cluster API that works with many event systems.
+Currently there are adapters that enables support for libevent and Redis Event Library (ae),
+but more can be added. The hiredis library has adapters for additional event systems that
+easily can be adapted for hiredis-cluster as well.
 
 ### Connecting
 
@@ -246,8 +199,7 @@ On a disconnect, the `status` argument is set to `REDIS_OK` when disconnection w
 user, or `REDIS_ERR` when the disconnection was caused by an error. When it is `REDIS_ERR`, the `err`
 field in the context can be accessed to find out the cause of the error.
 
-You not need to reconnect in the disconnect callback, hiredis-vip will reconnect this connection itself
-when commands come to this redis node.
+You dont need to reconnect in the disconnect callback, hiredis-cluster will reconnect by itself when next command for this Redis node is handled.
 
 Setting the disconnect callback can only be done once per context. For subsequent calls it will
 return `REDIS_ERR`. The function to set the disconnect callback has the following prototype:
@@ -256,22 +208,21 @@ int redisClusterAsyncSetDisconnectCallback(redisClusterAsyncContext *acc, redisD
 ```
 ### Sending commands and their callbacks
 
-In an cluster asynchronous context, commands are automatically pipelined due to the nature of an event loop.
-Therefore, unlike the cluster synchronous API, there is only a single way to send commands.
-Because commands are sent to Redis cluster asynchronously, issuing a command requires a callback function
+In an asynchronous cluster context, commands are automatically pipelined due to the nature of an event loop.
+Therefore, unlike the synchronous cluster API, there is only a single way to send commands.
+Because commands are sent to Redis Cluster asynchronously, issuing a command requires a callback function
 that is called when the reply is received. Reply callbacks should have the following prototype:
 ```c
 void(redisClusterAsyncContext *acc, void *reply, void *privdata);
 ```
-The `privdata` argument can be used to curry arbitrary data to the callback from the point where
+The `privdata` argument can be used to carry arbitrary data to the callback from the point where
 the command is initially queued for execution.
 
 The functions that can be used to issue commands in an asynchronous context are:
 ```c
-int redisClusterAsyncCommand(
-  redisClusterAsyncContext *acc, 
-  redisClusterCallbackFn *fn, 
-  void *privdata, const char *format, ...);
+int redisClusterAsyncCommand(redisClusterAsyncContext *acc,
+                             redisClusterCallbackFn *fn,
+                             void *privdata, const char *format, ...);
 ```
 This function work like their blocking counterparts. The return value is `REDIS_OK` when the command
 was successfully added to the output buffer and `REDIS_ERR` otherwise. Example: when the connection
@@ -286,62 +237,28 @@ All pending callbacks are called with a `NULL` reply when the context encountere
 
 ### Disconnecting
 
-An cluster asynchronous connection can be terminated using:
+Asynchronous cluster connections can be terminated using:
 ```c
 void redisClusterAsyncDisconnect(redisClusterAsyncContext *acc);
 ```
-When this function is called, the connection is **not** immediately terminated. Instead, new
-commands are no longer accepted and the connection is only terminated when all pending commands
-have been written to the socket, their respective replies have been read and their respective
+When this function is called, connections are **not** immediately terminated. Instead, new
+commands are no longer accepted and connections are only terminated when all pending commands
+have been written to a socket, their respective replies have been read and their respective
 callbacks have been executed. After this, the disconnection callback is executed with the
 `REDIS_OK` status and the context object is freed.
 
-### Hooking it up to event library *X*
+### Using event library *X*
 
 There are a few hooks that need to be set on the cluster context object after it is created.
 See the `adapters/` directory for bindings to *ae* and *libevent*.
 
-## Build instructions
-
-Build the library
-
-```
-mkdir build
-cd build
-cmake ..
-make
-```
-
-Options:
-
-```
-# Dont download hiredis from git
-cmake -DDOWNLOAD_HIREDIS=OFF ..
-
-# Build without tests:
-cmake -DDISABLE_TESTS=ON ..
-```
-
-Build the examples
-
-```
-mkdir build_examples
-cd build_examples
-cmake ../examples
-make
-
-# Run
-./examples/src/examples-build/examples
-./examples/src/examples-build/examples_async
-```
-
 ## AUTHORS
-
-Hiredis-vip was created by vipshop (https://github.com/vipshop/hiredis-vip).
 
 This fork is based on the heronr fork (https://github.com/heronr/hiredis-vip)
 and uses hiredis (https://github.com/redis/hiredis).
 
-The redis cluster client library part in hiredis-vip is written by deep(https://github.com/deep011).
+Hiredis-vip was originally created by vipshop (https://github.com/vipshop/hiredis-vip).
+
+The Redis Cluster client library part in hiredis-vip was written by deep (https://github.com/deep011).
 
 Hiredis-vip is released under the BSD license.
