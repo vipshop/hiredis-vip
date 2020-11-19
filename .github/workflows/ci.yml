@@ -38,7 +38,7 @@ jobs:
       # access regardless of the host operating system
       shell: bash
       working-directory: build
-      run: cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE
+      run: cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DENABLE_SSL=ON ..
 
     - name: Build
       shell: bash

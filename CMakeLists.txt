@@ -3,7 +3,7 @@ include(GNUInstallDirs)
 project(hiredis-cluster)
 
 option(DOWNLOAD_HIREDIS "Download the dependency hiredis from GitHub" ON)
-option(ENABLE_SSL       "Enable SSL/TLS support" ON)
+option(ENABLE_SSL       "Enable SSL/TLS support" OFF)
 option(DISABLE_TESTS    "Disable compilation of test" OFF)
 
 macro(getVersionBit name)
