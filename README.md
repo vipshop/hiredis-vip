@@ -39,8 +39,18 @@ Hiredis-cluster is a fork of Hiredis-vip, with the following improvements:
 
 ## Build instructions
 
+Prerequisites:
+
+* A C compiler (GCC or Clang)
+* CMake and GNU Make
+* (hiredis)[https://github.com/redis/hiredis]; downloaded automatically by
+  default, but see build options below
+* (libevent)[https://libevent.org/] (`libevent-dev` in Debian); can be avoided
+  if building without tests (DISABLE_TESTS=ON)
+* OpenSSL (`libssl-dev` in Debian) if building with TLS support
+
 Building hiredis-cluster and its test suites requires headerfiles and linkage to (hiredis)[https://github.com/redis/hiredis]
-and (libevent)[https://libevent.org/]. The libevent dependency can be avoided by disabling the tests.
+and .
 
 Hiredis-cluster will be built as a shared library and the test suites will additionally depend on the shared library libhiredis.so,
 and libhiredis_ssl.so when SSL is enabled.
@@ -56,22 +66,35 @@ $ make
 The following CMake options are available:
 
 * `DOWNLOAD_HIREDIS`
-  * `OFF` CMake will search for an already installed hiredis using following (paths)[https://cmake.org/cmake/help/latest/command/find_package.html#search-procedure].
-  * `ON` (default) hiredis will be downloaded, built and installed locally in the build folder.
+  * `OFF` CMake will search for an already installed hiredis (for example the
+    the Debian package `libhiredis-dev`) for header files and linkage.
+  * `ON` (default) hiredis will be downloaded from
+    (Github)[https://github.com/redis/hiredis], built and installed locally in
+    the build folder.
 * `ENABLE_SSL`
   * `OFF` (default)
-  * `ON` Enable SSL/TLS support and build its tests (also affect hiredis when `DOWNLOAD_HIREDIS=ON`).
+  * `ON` Enable SSL/TLS support and build its tests (also affect hiredis when
+    `DOWNLOAD_HIREDIS=ON`).
 * `DISABLE_TESTS`
   * `OFF` (default)
-  * `ON` Disable compilation of tests (also affect hiredis when `DOWNLOAD_HIREDIS=ON`).
+  * `ON` Disable compilation of tests (also affect hiredis when
+    `DOWNLOAD_HIREDIS=ON`).
 
 ### Build details
 
-The build uses CMake's (find_package)[https://cmake.org/cmake/help/latest/command/find_package.html] to search for a `hiredis` installation.
+The build uses CMake's (find_package)[https://cmake.org/cmake/help/latest/command/find_package.html#search-procedure] to search for a `hiredis` installation.
 When building and installing `hiredis` a file called `hiredis-config.cmake` will be installed and this contains relevant information for users.
 
 As described in the CMake docs a specific path can be set using a flag like: `-Dhiredis_DIR:PATH=${MY_DIR}/hiredis/share/hiredis`
 
+### Running the tests
+
+The tests and examples are located under `build/tests` after building using the
+instructions above. Then run `make start` (WIP) to start a Redis cluster and then
+`make test`. If you want to set up the Redis cluster manually, it should run on
+localhost, where one of the nodes listens on port 30001 and has TLS disabled.
+It should accept both IPv4 and IPv6 for all tests to pass. For the TLS tests,
+one node is to listen on port 31001 and all nodes has to have TLS enabled.
 
 ## Quick usage
 
